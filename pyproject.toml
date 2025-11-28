@@ -1,0 +1,62 @@
+[project]
+name = "bsa-voice-of-customer"
+version = "0.1.0"
+description = "Voice of the Customer analysis for UK Building Societies"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # Core
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+
+    # Database
+    "sqlalchemy>=2.0.0",
+    "lancedb>=0.4.0",
+
+    # Scraping
+    "httpx>=0.26.0",
+    "beautifulsoup4>=4.12.0",
+    "google-play-scraper>=1.2.0",
+    "app-store-scraper>=0.3.5",
+    "lxml>=5.0.0",
+
+    # LLM & Embeddings
+    "openai>=1.10.0",
+    "tiktoken>=0.5.0",
+
+    # Processing
+    "pandas>=2.1.0",
+    "regex>=2023.12.0",
+    "langdetect>=1.0.9",
+    "rapidfuzz>=3.6.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.66.0",
+    "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
