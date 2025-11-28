@@ -205,7 +205,6 @@ class SmartMoneyPeopleScraper(BaseScraper):
                 rating=rating,
                 title=None,  # Smart Money People doesn't have titles
                 body=body,
-                product_mentioned=product_type,
             )
 
         except Exception:
