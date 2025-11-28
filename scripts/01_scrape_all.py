@@ -11,7 +11,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config.settings import settings
 from src.config.societies import get_all_societies, get_society_by_id
-from src.scrapers import AppStoreScraper, PlayStoreScraper, TrustpilotScraper
+from src.scrapers import (
+    AppStoreScraper,
+    FeefoScraper,
+    PlayStoreScraper,
+    SmartMoneyPeopleScraper,
+    TrustpilotScraper,
+)
 
 
 def parse_date(date_str: str) -> date:
@@ -24,7 +30,7 @@ def main():
     parser.add_argument(
         "--sources",
         nargs="+",
-        choices=["trustpilot", "appstore", "playstore", "all"],
+        choices=["trustpilot", "appstore", "playstore", "smartmoneypeople", "feefo", "all"],
         default=["all"],
         help="Sources to scrape (default: all)",
     )
@@ -72,7 +78,8 @@ def main():
     print()
 
     # Determine which sources to scrape
-    sources = args.sources if "all" not in args.sources else ["trustpilot", "appstore", "playstore"]
+    all_sources = ["trustpilot", "appstore", "playstore", "smartmoneypeople", "feefo"]
+    sources = args.sources if "all" not in args.sources else all_sources
 
     total_reviews = 0
 
@@ -110,6 +117,30 @@ def main():
             count = sum(len(r) for r in results.values())
             total_reviews += count
             print(f"Total Play Store reviews: {count}")
+        print()
+
+    # Scrape Smart Money People
+    if "smartmoneypeople" in sources:
+        print("=" * 60)
+        print("SMART MONEY PEOPLE")
+        print("=" * 60)
+        with SmartMoneyPeopleScraper(output_dir=args.output_dir) as scraper:
+            results = scraper.scrape_all(societies, args.start_date, args.end_date)
+            count = sum(len(r) for r in results.values())
+            total_reviews += count
+            print(f"Total Smart Money People reviews: {count}")
+        print()
+
+    # Scrape Feefo
+    if "feefo" in sources:
+        print("=" * 60)
+        print("FEEFO")
+        print("=" * 60)
+        with FeefoScraper(output_dir=args.output_dir) as scraper:
+            results = scraper.scrape_all(societies, args.start_date, args.end_date)
+            count = sum(len(r) for r in results.values())
+            total_reviews += count
+            print(f"Total Feefo reviews: {count}")
         print()
 
     print("=" * 60)
