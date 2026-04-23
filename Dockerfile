@@ -1,8 +1,18 @@
 FROM python:3.11-slim
 
-# System libs needed by lancedb / pyarrow / numpy wheels on slim
+# System libs:
+#  - build-essential for lancedb / pyarrow / numpy wheels
+#  - WeasyPrint needs pango, harfbuzz, cairo, fontconfig for HTML->PDF rendering
+#    of the benchmark report
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libharfbuzz0b \
+        libcairo2 \
+        libffi-dev \
+        shared-mime-info \
+        fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -12,7 +22,7 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir \
         "fastapi>=0.109.0" \
         "uvicorn[standard]>=0.27.0" \
-        "pydantic>=2.5.0" \
+        "pydantic[email]>=2.5.0" \
         "pydantic-settings>=2.3.0" \
         "sqlalchemy>=2.0.0" \
         "lancedb>=0.4.0" \
@@ -28,7 +38,8 @@ RUN pip install --no-cache-dir \
         "rapidfuzz>=3.6.0" \
         "python-dotenv>=1.0.0" \
         "tqdm>=4.66.0" \
-        "tenacity>=8.2.0"
+        "tenacity>=8.2.0" \
+        "weasyprint>=60.0"
 
 # Code + pre-built SQLite (contains the ~14.9k enriched reviews). The
 # LanceDB vector index is generated from SQLite on first boot into a

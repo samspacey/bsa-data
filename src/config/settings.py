@@ -58,6 +58,18 @@ class Settings(BaseSettings):
     # SerpAPI (optional — set to enable Google scraping)
     serpapi_key: str = ""
 
+    # Email sending for the benchmark report. Either set SMTP_* (preferred) or
+    # RESEND_API_KEY. If neither is set, the /report/email endpoint still
+    # generates the PDF but returns an error that the frontend can surface.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+
+    resend_api_key: str = ""
+    resend_from_email: str = ""
+
     @property
     def sqlite_url(self) -> str:
         """SQLAlchemy database URL."""

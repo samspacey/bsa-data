@@ -170,27 +170,6 @@ html, body {
 
 .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
 
-/* "Download PDF" in the BenchmarkModal calls window.print().
- *
- * The PDFReport is rendered via createPortal into body > #print-root so it
- * sits OUTSIDE React's #root subtree. During print we hide #root entirely
- * and show #print-root so the output is only the report, not the chat
- * screen behind the modal.
- */
-#print-root { display: none; }
-
-@media print {
-  @page { margin: 0; size: A4; }
-  html, body { background: #FFFFFF !important; margin: 0 !important; padding: 0 !important; }
-  #root { display: none !important; }
-  #print-root {
-    display: block !important;
-    position: static !important;
-  }
-  #print-root > * {
-    margin: 0 !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    page-break-inside: avoid;
-  }
-}
+/* Report PDFs are generated server-side via WeasyPrint (see
+ * src/api/services/pdf_report.py). The browser just downloads them -
+ * no window.print() flow, no print stylesheet needed. */

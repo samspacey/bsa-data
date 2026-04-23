@@ -163,6 +163,48 @@ export async function fetchSocietyReviews(societyId: string, limit = 300) {
   return response.json() as Promise<import("./types").SocietyReview[]>;
 }
 
+/**
+ * Direct URL for the PDF download. Browser navigates here (or follows a
+ * link with `download` attr) to trigger a file download, rather than a
+ * window.print() flow.
+ */
+export function reportPdfUrl(societyId: string, region: string, sessionId?: string): string {
+  const params = new URLSearchParams({ society_id: societyId });
+  if (region) params.set("region", region);
+  if (sessionId) params.set("session_id", sessionId);
+  return apiUrl(`/report/pdf?${params.toString()}`);
+}
+
+export interface EmailReportResult {
+  email_sent: boolean;
+  error: string | null;
+  pdf_base64: string | null;
+  filename: string;
+}
+
+export async function emailReport(
+  societyId: string,
+  toEmail: string,
+  region: string,
+  sessionId?: string
+): Promise<EmailReportResult> {
+  const response = await fetch(apiUrl("/report/email"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      society_id: societyId,
+      to_email: toEmail,
+      region,
+      session_id: sessionId,
+    }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`API error: ${response.status} ${text}`);
+  }
+  return response.json();
+}
+
 export async function resetSession(sessionId?: string): Promise<void> {
   const url = sessionId ? apiUrl(`/chat/reset?session_id=${sessionId}`) : apiUrl("/chat/reset");
   await fetch(url, { method: "POST" });
