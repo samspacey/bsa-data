@@ -157,6 +157,12 @@ export async function fetchFeaturedReviews(limit = 10): Promise<FeaturedReview[]
   return response.json();
 }
 
+export async function fetchSocietyReviews(societyId: string, limit = 300) {
+  const response = await fetch(apiUrl(`/reviews/by-society/${societyId}?limit=${limit}`));
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  return response.json() as Promise<import("./types").SocietyReview[]>;
+}
+
 export async function resetSession(sessionId?: string): Promise<void> {
   const url = sessionId ? apiUrl(`/chat/reset?session_id=${sessionId}`) : apiUrl("/chat/reset");
   await fetch(url, { method: "POST" });

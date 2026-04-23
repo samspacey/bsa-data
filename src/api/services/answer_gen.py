@@ -1,8 +1,8 @@
 """Answer generation using OpenAI, with persona-aware roleplay support.
 
 Two modes:
-- ``generate()`` — blocking, returns full answer text (legacy ``/api/chat/``)
-- ``generate_stream()`` — async generator yielding tokens for SSE streaming
+- ``generate()`` - blocking, returns full answer text (legacy ``/api/chat/``)
+- ``generate_stream()`` - async generator yielding tokens for SSE streaming
 
 The streaming path supports persona roleplay: pass ``society_name`` and
 ``persona`` to have the model speak as that archetype member of that society,
@@ -47,6 +47,7 @@ Your answers are grounded in public reviews, forum mentions, and editorial ratin
 - Frame statements as "In these public reviews..." not as absolute facts
 - Never invent statistics not in the provided data
 - If data is sparse, explicitly say so
+- Never use em dashes (the character "—"). Use a comma, full stop, colon, or hyphen-with-spaces instead.
 
 ## Citation Format
 When you reference a specific review, insert an inline citation marker ``[[s_N]]`` where N is the zero-indexed position of the snippet. Example: "Customers praise the app [[s_0]], though some report login issues [[s_2]]."
@@ -64,7 +65,7 @@ Respond in markdown format."""
 def build_persona_system_prompt(society_name: str, persona: Persona) -> str:
     """Build a system prompt for persona-roleplay chat.
 
-    The model speaks AS the persona — first person, in character — grounded in
+    The model speaks AS the persona - first person, in character - grounded in
     the real reviews passed as context. The citation syntax is preserved so
     the frontend can render pills back to specific reviews.
     """
@@ -80,13 +81,14 @@ def build_persona_system_prompt(society_name: str, persona: Persona) -> str:
 - Speak in first person AS {persona.first_name}. Do not break character.
 - Be conversational, not a report. Short paragraphs. Natural speech.
 - Use British English. Occasional British idioms fit the persona.
+- Never use em dashes (the character "—"). Use a comma, full stop, or hyphen-with-spaces instead.
 - Ground what you say in the real reviews provided in the user message. When a specific review supports a point you make, cite it inline using ``[[s_N]]`` where N is the zero-indexed position of that snippet in the Evidence list.
 - Only cite snippets that appear in the Evidence list. Do not invent snippet IDs. Cite at most one per sentence.
 - If the Evidence is thin for the question asked, say so honestly in character ("I can't really speak to that, it's not something I've run into") rather than making things up.
 - You are explicitly a simulation. If asked directly whether you are a real member, acknowledge you're a simulated composite informed by real reviews.
 
 ## Context about the society and recent member feedback
-You are aware (as a member of this society) of broad sentiment trends in the data, but you speak from personal experience, not as an analyst. Do not quote statistics at the user — leave that to the analysts. Speak as a real member would."""
+You are aware (as a member of this society) of broad sentiment trends in the data, but you speak from personal experience, not as an analyst. Do not quote statistics at the user - leave that to the analysts. Speak as a real member would."""
 
 
 ANSWER_USER_TEMPLATE_ANALYST = """Based on the following data, answer the user's question.
@@ -222,7 +224,8 @@ class AnswerGenerator:
             temperature=0.6 if persona else 0.5,
             max_tokens=1000,
         )
-        return response.choices[0].message.content or "Unable to generate answer."
+        content = response.choices[0].message.content or "Unable to generate answer."
+        return content.replace("\u2014", " - ")
 
     async def generate_stream(
         self,
@@ -248,7 +251,10 @@ class AnswerGenerator:
         async for chunk in stream:
             delta = chunk.choices[0].delta if chunk.choices else None
             if delta and delta.content:
-                yield delta.content
+                # Belt-and-braces: the system prompt forbids em dashes, but the
+                # model occasionally emits one anyway. Strip at the edge so the
+                # UI never sees U+2014.
+                yield delta.content.replace("\u2014", " - ")
 
     async def generate_followups(
         self,
@@ -292,10 +298,10 @@ class AnswerGenerator:
         intent: QueryIntent,
         persona: Optional[Persona] = None,
     ) -> str:
-        """Fallback when no data is available — short, in-character if persona set."""
+        """Fallback when no data is available - short, in-character if persona set."""
         if persona:
             return (
-                f"Honestly, I couldn't tell you — that's not something I've come across "
+                f"Honestly, I couldn't tell you - that's not something I've come across "
                 "as a member. You might want to check with someone who works there."
             )
         society_names = (

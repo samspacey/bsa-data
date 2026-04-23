@@ -27,7 +27,7 @@ export const archetypes: Archetype[] = [
     name: "The Digital Native",
     initials: "RM",
     age: "25–35",
-    blurb: "Tech professional, first-time buyer. Chose a mutual over a bank for a reason — but expects the experience to match.",
+    blurb: "Tech professional, first-time buyer. Chose a mutual over a bank for a reason - but expects the experience to match.",
     detail: "Signed up within the last year. Has opinions about the app, the signup flow, and notification rates.",
     concerns: ["Outdated tech", "Slow processes", "Rate competitiveness"],
     firstName: "Rhys",

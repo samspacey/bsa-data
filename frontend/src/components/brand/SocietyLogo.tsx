@@ -23,7 +23,7 @@ export function SocietyLogo({ society, size = 56 }: Props) {
   const px = Math.max(128, Math.ceil(size * 2));
   const logoUrl = `https://www.google.com/s2/favicons?domain=${society.domain}&sz=${Math.min(px, 256)}`;
 
-  // Monogram fallback — two letters for multi-word names.
+  // Monogram fallback - two letters for multi-word names.
   const words = society.short.split(/[\s&-]+/).filter(Boolean);
   const initials =
     words.length > 1

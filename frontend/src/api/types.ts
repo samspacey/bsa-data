@@ -119,5 +119,19 @@ export interface FeaturedReview {
   source_id: string;
 }
 
+export interface SocietyReview {
+  id: number;
+  snippet_id: string;
+  body: string;
+  rating: number;
+  review_date: string;
+  society_id: string;
+  society_name: string;
+  source: string;
+  source_id: string;
+  sentiment_label: SentimentLabel;
+  source_url?: string | null;
+}
+
 // Re-export ChatResponse for components that import from client.ts
 export type { ChatResponse as ChatResponseType };

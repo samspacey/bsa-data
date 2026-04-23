@@ -6,8 +6,8 @@ import { Icon } from "../components/brand/Icons";
 import type { Society } from "../data/societies";
 import type { Archetype } from "../data/archetypes";
 import { suggestedPrompts } from "../data/reviews";
-import { streamMessage } from "../api/client";
-import type { ReviewSnippet } from "../api/types";
+import { fetchSocietyReviews, streamMessage } from "../api/client";
+import type { ReviewSnippet, SocietyReview } from "../api/types";
 
 interface Props {
   society: Society;
@@ -22,7 +22,7 @@ interface LiveMessage {
   /**
    * Snapshot of the evidence snippets that were retrieved alongside this
    * assistant message. Citation markers `[[s_N]]` in `text` index into this
-   * array — NOT the global `snippets` state, which can change per turn.
+   * array - NOT the global `snippets` state, which can change per turn.
    */
   snippets?: ReviewSnippet[];
   streaming?: boolean;
@@ -57,7 +57,7 @@ function parseMessage(text: string): MessagePart[] {
   return parts;
 }
 
-function sentimentOf(snippet: ReviewSnippet): "positive" | "negative" | "neutral" {
+function sentimentOf(snippet: ReviewSnippet | SocietyReview): "positive" | "negative" | "neutral" {
   if (snippet.sentiment_label === "very_positive" || snippet.sentiment_label === "positive") return "positive";
   if (snippet.sentiment_label === "very_negative" || snippet.sentiment_label === "negative") return "negative";
   return "neutral";
@@ -91,13 +91,13 @@ function openingLine(persona: Archetype, society: Society): string {
   const societyShort = society.short;
   switch (persona.id) {
     case "loyalist":
-      return `Oh, hello. Thirty-odd years I've been with ${societyShort}. Do sit down — what did you want to talk about?`;
+      return `Oh, hello. Thirty-odd years I've been with ${societyShort}. Do sit down - what did you want to talk about?`;
     case "digital":
       return `Hey. Yeah, I signed up with ${societyShort} about a year ago. Happy to give you the honest read.`;
     case "family":
-      return `Hi — got ten minutes. We've got the mortgage and the kids' savings with ${societyShort}, so fire away.`;
+      return `Hi - got ten minutes. We've got the mortgage and the kids' savings with ${societyShort}, so fire away.`;
     case "business":
-      return `Good to meet you. I've banked with ${societyShort} — personal and business — for a good while. What did you want to know?`;
+      return `Good to meet you. I've banked with ${societyShort} - personal and business - for a good while. What did you want to know?`;
     default:
       return `Hello. I'm a member of ${societyShort}. Happy to answer what I can.`;
   }
@@ -117,16 +117,35 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
   const [sessionId, setSessionId] = useState<string | undefined>();
   // Total reviews available for this society (populated from the backend's
   // data_coverage on the first streamed metadata event). Separate from the
-  // 10 snippets returned per turn — surfaced in the header so the user
+  // 10 snippets returned per turn - surfaced in the header so the user
   // sees the full corpus size, not the retrieval cap.
   const [totalReviewsForSociety, setTotalReviewsForSociety] = useState<number | null>(null);
   const [reportNudgeDismissed, setReportNudgeDismissed] = useState(false);
+  // Full corpus of reviews for the current society. Fetched once on mount.
+  // The panel always shows everything; the "Referenced" subset floats to the
+  // top and stays saturated while the rest is desaturated.
+  const [societyReviews, setSocietyReviews] = useState<SocietyReview[]>([]);
 
+  // Keyed by review.id so scroll-on-cite works regardless of panel section.
   const reviewRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Snippets shown in the right-hand evidence panel — always the latest
+  // Load all society reviews once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetchSocietyReviews(society.id, 300)
+      .then(reviews => {
+        if (cancelled) return;
+        setSocietyReviews(reviews);
+      })
+      .catch(err => console.warn("society reviews fetch failed", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [society.id]);
+
+  // Snippets shown in the right-hand evidence panel - always the latest
   // assistant message's snippets (so it aligns with the most recent answer).
   const activeSnippets: ReviewSnippet[] = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -137,6 +156,47 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
     }
     return [];
   }, [messages]);
+
+  // Split the full society corpus into Referenced + Other. If the society
+  // reviews haven't loaded yet OR the cited review isn't in the 300-row
+  // window we fetched (older reviews), append the active snippet inline so
+  // the UI never shows a broken "Review #N" that points nowhere.
+  const { referencedReviews, otherReviews } = useMemo(() => {
+    const byId = new Map<number, SocietyReview>();
+    for (const r of societyReviews) byId.set(r.id, r);
+
+    const ref: SocietyReview[] = [];
+    const refIdsSet = new Set<number>();
+    for (const snippet of activeSnippets) {
+      const n = parseInt(snippet.snippet_id, 10);
+      if (Number.isNaN(n)) continue;
+      const found = byId.get(n);
+      if (found) {
+        ref.push(found);
+        refIdsSet.add(n);
+      } else {
+        // Synthesize a SocietyReview from the snippet so the panel always
+        // shows the referenced card, even for reviews outside the 300-row
+        // most-recent window.
+        ref.push({
+          id: n,
+          snippet_id: snippet.snippet_id,
+          body: snippet.snippet_text,
+          rating: snippet.rating,
+          review_date: snippet.review_date,
+          society_id: snippet.building_society_id,
+          society_name: snippet.building_society_name,
+          source: snippet.source,
+          source_id: snippet.source.toLowerCase().replace(/[^a-z_]/g, "_"),
+          sentiment_label: snippet.sentiment_label,
+          source_url: snippet.source_url ?? null,
+        });
+        refIdsSet.add(n);
+      }
+    }
+    const other = societyReviews.filter(r => !refIdsSet.has(r.id));
+    return { referencedReviews: ref, otherReviews: other };
+  }, [societyReviews, activeSnippets]);
 
   const contextByPersona: Record<string, string> = {
     loyalist: "A simulated Loyalist member · 30+ years · values branch relationships · low digital trust",
@@ -151,11 +211,14 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  const scrollToReview = (index: number) => {
-    setHighlighted(index);
-    const el = reviewRefs.current[index];
+  // Scroll the evidence panel to the card for a given review id and flash it.
+  // Review id is used as the key so referenced and non-referenced sections
+  // can both be targets without clashing.
+  const scrollToReview = (reviewId: number) => {
+    setHighlighted(reviewId);
+    const el = reviewRefs.current[reviewId];
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => setHighlighted(h => (h === index ? null : h)), 2400);
+    window.setTimeout(() => setHighlighted(h => (h === reviewId ? null : h)), 2400);
   };
 
   const handleSend = (text: string) => {
@@ -200,7 +263,7 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
           });
         },
         onFollowups: () => {
-          // Not rendered in the kiosk UI — the prompt chips are hardcoded per persona.
+          // Not rendered in the kiosk UI - the prompt chips are hardcoded per persona.
         },
         onDone: () => {
           setMessages(prev => {
@@ -220,7 +283,7 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
             if (last?.role === "assistant") {
               last.streaming = false;
               if (!last.text) {
-                last.text = "Sorry — I couldn't reach the backend just now. Please try again.";
+                last.text = "Sorry - I couldn't reach the backend just now. Please try again.";
               }
             }
             return next;
@@ -244,8 +307,6 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
     );
   };
 
-  const positiveCount = activeSnippets.filter(s => sentimentOf(s) === "positive").length;
-  const negativeCount = activeSnippets.filter(s => sentimentOf(s) === "negative").length;
   const userMessageCount = messages.filter(m => m.role === "user").length;
   const showReportNudge = userMessageCount >= 2 && !reportNudgeDismissed;
 
@@ -316,7 +377,7 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
                     Want to take this away?
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 1 }}>
-                    Download the full benchmark report for {society.short} — seven factors vs the sector.
+                    Download the full benchmark report for {society.short} - seven factors vs the sector.
                   </div>
                 </div>
                 <button
@@ -417,91 +478,65 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--navy)" }}>Evidence</div>
                 <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>
-                  {activeSnippets.length > 0
-                    ? totalReviewsForSociety !== null
-                      ? `${activeSnippets.length} of ${totalReviewsForSociety.toLocaleString()} reviews · informing this answer`
-                      : `${activeSnippets.length} reviews · informing this answer`
-                    : `Ask a question to see supporting reviews`}
+                  {totalReviewsForSociety !== null
+                    ? `Showing ${(referencedReviews.length + otherReviews.length).toLocaleString()} of ${totalReviewsForSociety.toLocaleString()} reviews for ${society.short}`
+                    : `${(referencedReviews.length + otherReviews.length).toLocaleString()} reviews for ${society.short}`}
                 </div>
               </div>
-              <button style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--ink-3)" }}>
-                <Icon.Close />
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 4, marginTop: 12, fontSize: 11 }}>
-              {([
-                ["All", activeSnippets.length],
-                ["Positive", positiveCount],
-                ["Negative", negativeCount],
-              ] as [string, number][]).map(([k, n], i) => (
-                <span
-                  key={k}
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: i === 0 ? "var(--navy)" : "transparent",
-                    color: i === 0 ? "#FFFFFF" : "var(--ink-2)",
-                    border: `1px solid ${i === 0 ? "var(--navy)" : "var(--line-2)"}`,
-                    fontWeight: 600,
-                  }}
-                >
-                  {k} · {n}
-                </span>
-              ))}
             </div>
           </div>
           <div style={{ padding: "14px 22px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {activeSnippets.length === 0 && (
+            {referencedReviews.length > 0 && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                  <span className="mono" style={{ color: "var(--coral-2)", fontSize: 9.5, fontWeight: 700 }}>
+                    REFERENCED IN THIS ANSWER
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                  <span style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600 }}>
+                    {referencedReviews.length}
+                  </span>
+                </div>
+                {referencedReviews.map(r => (
+                  <ReviewCard
+                    key={`ref-${r.id}`}
+                    review={r}
+                    referenced
+                    highlighted={highlighted === r.id}
+                    refCb={el => { reviewRefs.current[r.id] = el; }}
+                  />
+                ))}
+              </>
+            )}
+
+            {otherReviews.length > 0 && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: referencedReviews.length > 0 ? 18 : 2 }}>
+                  <span className="mono" style={{ color: "var(--ink-3)", fontSize: 9.5, fontWeight: 700 }}>
+                    {referencedReviews.length > 0 ? "OTHER REVIEWS" : "ALL REVIEWS"}
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                  <span style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600 }}>
+                    {otherReviews.length}
+                  </span>
+                </div>
+                {otherReviews.map(r => (
+                  <ReviewCard
+                    key={`other-${r.id}`}
+                    review={r}
+                    referenced={false}
+                    highlighted={highlighted === r.id}
+                    refCb={el => { reviewRefs.current[r.id] = el; }}
+                  />
+                ))}
+              </>
+            )}
+
+            {referencedReviews.length === 0 && otherReviews.length === 0 && (
               <div style={{ padding: "24px 14px", background: "#FFFFFF", borderRadius: 10, border: "1px dashed var(--line)", textAlign: "center", color: "var(--ink-4)", fontSize: 12.5 }}>
-                No evidence yet — ask {persona.firstName} something to see the reviews informing their response.
+                Loading reviews for {society.short}...
               </div>
             )}
-            {activeSnippets.map((s, index) => {
-              const isHi = highlighted === index;
-              const sentiment = sentimentOf(s);
-              return (
-                <div
-                  key={`${s.snippet_id}-${index}`}
-                  ref={el => { reviewRefs.current[index] = el; }}
-                  style={{
-                    background: isHi ? "#FFF8E6" : "#FFFFFF",
-                    border: `1px solid ${isHi ? "var(--coral)" : "var(--line)"}`,
-                    borderRadius: 10,
-                    padding: "14px 14px 13px",
-                    borderLeft: `3px solid ${sentiment === "positive" ? "var(--positive)" : sentiment === "negative" ? "var(--coral)" : "var(--line-2)"}`,
-                    boxShadow: isHi ? "0 0 0 3px rgba(255,87,115,0.18), 0 8px 24px -8px rgba(255,87,115,0.4)" : "none",
-                    transform: isHi ? "scale(1.015)" : "scale(1)",
-                    transition: "all 0.35s ease",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span
-                      className="mono"
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 700,
-                        background: sentiment === "positive" ? "var(--positive-soft)" : sentiment === "negative" ? "var(--coral-soft)" : "var(--navy-soft)",
-                        color: sentiment === "positive" ? "var(--positive)" : sentiment === "negative" ? "var(--coral-2)" : "var(--navy)",
-                        padding: "2px 7px",
-                        borderRadius: 4,
-                      }}
-                    >
-                      #{index + 1} · {sentiment.toUpperCase()}
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{s.rating}/5 · {formatReviewDate(s.review_date)}</span>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 4, letterSpacing: "-0.005em" }}>{shortSourceName(s.source)}</div>
-                  <p style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--ink-2)", margin: 0, fontWeight: 400 }}>
-                    "{s.snippet_text}"
-                  </p>
-                  {isHi && (
-                    <div className="mono" style={{ marginTop: 8, fontSize: 9, color: "var(--coral-2)", fontWeight: 700 }}>
-                      ← REFERENCED IN CHAT
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </aside>
       </div>
@@ -513,13 +548,22 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
 interface MessageBlockProps {
   message: LiveMessage;
   persona: Archetype;
-  onCiteClick: (index: number) => void;
+  onCiteClick: (reviewId: number) => void;
 }
 
 function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
   const isUser = message.role === "user";
   const parts = isUser ? [{ kind: "text" as const, value: message.text }] : parseMessage(message.text);
   const snippets = message.snippets || [];
+
+  // Resolve a snippet index in this message to the review id it points at.
+  // Evidence panel keys by review id so referenced + other sections share one anchor space.
+  const reviewIdFor = (snippetIndex: number): number | null => {
+    const s = snippets[snippetIndex];
+    if (!s) return null;
+    const n = parseInt(s.snippet_id, 10);
+    return Number.isNaN(n) ? null : n;
+  };
 
   // Collect unique citation indices referenced in this message, in order of appearance
   const seen = new Set<number>();
@@ -558,10 +602,11 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
             if (p.kind === "text") return <span key={i}>{p.value}</span>;
             const snippet = snippets[p.index];
             const short = snippet ? shortSourceName(snippet.source) : `ref ${p.index + 1}`;
+            const reviewId = reviewIdFor(p.index);
             return (
               <sup key={i} style={{ marginLeft: 2 }}>
                 <button
-                  onClick={() => onCiteClick(p.index)}
+                  onClick={() => { if (reviewId !== null) onCiteClick(reviewId); }}
                   title={snippet ? `${short} · ${formatReviewDate(snippet.review_date)}` : `Reference ${p.index + 1}`}
                   style={{
                     padding: "1px 6px",
@@ -591,12 +636,13 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
             {citedIndices.map(idx => {
               const s = snippets[idx];
               if (!s) return null;
+              const reviewId = reviewIdFor(idx);
               const isPos = sentimentOf(s) === "positive";
               const isNeg = sentimentOf(s) === "negative";
               return (
                 <button
                   key={idx}
-                  onClick={() => onCiteClick(idx)}
+                  onClick={() => { if (reviewId !== null) onCiteClick(reviewId); }}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -621,6 +667,93 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+
+interface ReviewCardProps {
+  review: SocietyReview;
+  referenced: boolean;
+  highlighted: boolean;
+  refCb: (el: HTMLDivElement | null) => void;
+}
+
+function ReviewCard({ review, referenced, highlighted, refCb }: ReviewCardProps) {
+  const sentiment = sentimentOf(review);
+  const sentimentColor =
+    sentiment === "positive" ? "var(--positive)" : sentiment === "negative" ? "var(--coral)" : "var(--line-2)";
+  const sentimentSoft =
+    sentiment === "positive" ? "var(--positive-soft)" : sentiment === "negative" ? "var(--coral-soft)" : "var(--navy-soft)";
+  const sentimentText =
+    sentiment === "positive" ? "var(--positive)" : sentiment === "negative" ? "var(--coral-2)" : "var(--navy)";
+
+  // Un-referenced cards desaturate with a filter + lower opacity so the
+  // referenced set visually pops above them. Hover brings them back to normal
+  // so they're still browsable.
+  const baseStyle: React.CSSProperties = {
+    background: highlighted ? "#FFF8E6" : "#FFFFFF",
+    border: `1px solid ${highlighted ? "var(--coral)" : "var(--line)"}`,
+    borderRadius: 10,
+    padding: "14px 14px 13px",
+    borderLeft: `3px solid ${sentimentColor}`,
+    boxShadow: highlighted ? "0 0 0 3px rgba(255,87,115,0.18), 0 8px 24px -8px rgba(255,87,115,0.4)" : "none",
+    transform: highlighted ? "scale(1.015)" : "scale(1)",
+    transition: "all 0.35s ease",
+    scrollMarginTop: 80,
+  };
+  if (!referenced && !highlighted) {
+    baseStyle.filter = "grayscale(0.85)";
+    baseStyle.opacity = 0.55;
+  }
+
+  return (
+    <div
+      ref={refCb}
+      id={`review-${review.id}`}
+      style={baseStyle}
+      onMouseEnter={e => {
+        if (!referenced && !highlighted) {
+          e.currentTarget.style.filter = "grayscale(0)";
+          e.currentTarget.style.opacity = "1";
+        }
+      }}
+      onMouseLeave={e => {
+        if (!referenced && !highlighted) {
+          e.currentTarget.style.filter = "grayscale(0.85)";
+          e.currentTarget.style.opacity = "0.55";
+        }
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span
+          className="mono"
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            background: sentimentSoft,
+            color: sentimentText,
+            padding: "2px 7px",
+            borderRadius: 4,
+          }}
+        >
+          #{review.id} · {sentiment.toUpperCase()}
+        </span>
+        <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          {review.rating}/5 · {formatReviewDate(review.review_date)}
+        </span>
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--navy)", marginBottom: 4, letterSpacing: "-0.005em" }}>
+        {shortSourceName(review.source)}
+      </div>
+      <p style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--ink-2)", margin: 0, fontWeight: 400 }}>
+        "{review.body}"
+      </p>
+      {highlighted && (
+        <div className="mono" style={{ marginTop: 8, fontSize: 9, color: "var(--coral-2)", fontWeight: 700 }}>
+          REFERENCED IN CHAT
+        </div>
+      )}
     </div>
   );
 }

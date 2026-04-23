@@ -19,7 +19,7 @@ interface DisplayQuote {
 }
 
 function formatWho(rating: number): string {
-  // Real reviews don't have author age/identity — surface sentiment tone
+  // Real reviews don't have author age/identity - surface sentiment tone
   if (rating <= 2) return "A member · 2026";
   if (rating >= 4) return "A satisfied member · 2026";
   return "A member · 2026";
@@ -258,7 +258,7 @@ export function Screensaver({ onEnter }: Props) {
             <span style={{ color: "var(--coral)" }}>your members.</span>
           </h1>
           <p style={{ fontSize: 21, lineHeight: 1.45, color: "rgba(255,255,255,0.78)", maxWidth: 500, marginTop: 36, fontWeight: 400 }}>
-            A simulator for boards and executives. Hear what your members actually think — in their own voice, grounded in real reviews and public data.
+            A simulator for boards and executives. Hear what your members actually think - in their own voice, grounded in real reviews and public data.
           </p>
 
           <div style={{ marginTop: 56, display: "flex", alignItems: "center", gap: 24 }}>

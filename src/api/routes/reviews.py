@@ -1,4 +1,4 @@
-"""Reviews endpoints — featured reviews for screensaver etc."""
+"""Reviews endpoints - featured reviews for screensaver etc."""
 
 import random
 from datetime import date
@@ -6,11 +6,11 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 from src.config.societies import SOCIETY_BY_ID
 from src.data.database import get_engine, get_session
-from src.data.models import PublicReview
+from src.data.models import PublicReview, SentimentAspect
 
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
@@ -26,6 +26,22 @@ class FeaturedReview(BaseModel):
     society_id: str
     society_name: str
     source_id: str
+
+
+class SocietyReview(BaseModel):
+    """Review payload for the per-society evidence panel."""
+
+    id: int
+    snippet_id: str
+    body: str
+    rating: int
+    review_date: date
+    society_id: str
+    society_name: str
+    source: str  # human-readable source name
+    source_id: str
+    sentiment_label: str  # very_positive | positive | neutral | negative | very_negative
+    source_url: Optional[str] = None
 
 
 # Hand-picked fallbacks in case the DB hasn't been populated yet. Keeps the
@@ -76,7 +92,7 @@ async def featured_reviews(limit: int = 10) -> list[FeaturedReview]:
 
     Criteria for selection:
     - Body length between 60 and 260 characters (fits the screensaver card)
-    - Rating is extreme (1-2 or 4-5) — more quotable than 3-star 'meh'
+    - Rating is extreme (1-2 or 4-5) - more quotable than 3-star 'meh'
     - Spread across multiple societies
     - Reasonably recent (last 2 years)
     """
@@ -166,3 +182,103 @@ async def featured_reviews(limit: int = 10) -> list[FeaturedReview]:
         # Never break the screensaver because of a DB issue.
         print(f"featured_reviews error: {e}")
         return FALLBACK_QUOTES[:limit]
+
+
+SOURCE_DISPLAY_NAMES = {
+    "trustpilot": "Trustpilot",
+    "app_store": "App Store",
+    "play_store": "Play Store",
+    "smartmoneypeople": "Smart Money People",
+    "feefo": "Feefo",
+    "reddit": "Reddit",
+    "mse": "MoneySavingExpert",
+    "google": "Google Reviews",
+    "fairer_finance": "Fairer Finance",
+    "which": "Which?",
+}
+
+
+def _infer_sentiment(rating: int) -> str:
+    """Fallback sentiment label when a review has no enrichment row."""
+    if rating >= 5:
+        return "very_positive"
+    if rating == 4:
+        return "positive"
+    if rating == 3:
+        return "neutral"
+    if rating == 2:
+        return "negative"
+    return "very_negative"
+
+
+@router.get("/by-society/{society_id}", response_model=list[SocietyReview])
+async def reviews_by_society(society_id: str, limit: int = 300) -> list[SocietyReview]:
+    """Return up to ``limit`` real reviews for a single building society.
+
+    Used by the kiosk's evidence panel to show the full corpus (not just the
+    10 snippets the vector search picks per chat turn). Orders by review_date
+    desc so the most recent reviews surface first. Joins the enrichment table
+    opportunistically for sentiment; reviews without enrichment fall back to
+    a rating-derived label.
+    """
+    society = SOCIETY_BY_ID.get(society_id)
+    if society is None:
+        raise HTTPException(status_code=404, detail=f"Unknown society: {society_id}")
+
+    engine = get_engine()
+    try:
+        with get_session(engine) as session:
+            # LEFT JOIN onto SentimentAspect where aspect = 'overall' so we
+            # get the enriched label when it exists, None otherwise.
+            sent_subq = (
+                session.query(
+                    SentimentAspect.review_id,
+                    SentimentAspect.overall_sentiment_label,
+                )
+                .filter(SentimentAspect.aspect == "overall")
+                .subquery()
+            )
+
+            rows = (
+                session.query(PublicReview, sent_subq.c.overall_sentiment_label)
+                .outerjoin(sent_subq, sent_subq.c.review_id == PublicReview.id)
+                .filter(PublicReview.building_society_id == society_id)
+                .filter(PublicReview.is_flagged_for_exclusion == False)  # noqa: E712
+                .filter(
+                    func.length(
+                        func.coalesce(PublicReview.body_text_clean, PublicReview.body_text_raw)
+                    )
+                    >= 20
+                )
+                .order_by(desc(PublicReview.review_date))
+                .limit(limit)
+                .all()
+            )
+
+            results: list[SocietyReview] = []
+            for row in rows:
+                r: PublicReview = row[0]
+                enriched_sent: Optional[str] = row[1]
+                body = (r.body_text_clean or r.body_text_raw or "").strip()
+                if not body:
+                    continue
+                sentiment = enriched_sent or _infer_sentiment(r.rating_raw)
+                results.append(
+                    SocietyReview(
+                        id=r.id,
+                        snippet_id=str(r.id),
+                        body=body,
+                        rating=r.rating_raw,
+                        review_date=r.review_date,
+                        society_id=r.building_society_id,
+                        society_name=society.canonical_name,
+                        source=SOURCE_DISPLAY_NAMES.get(r.source_id, r.source_id),
+                        source_id=r.source_id,
+                        sentiment_label=sentiment,
+                        source_url=r.source_url,
+                    )
+                )
+            return results
+    except Exception as e:  # noqa: BLE001
+        print(f"reviews_by_society error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load reviews")

@@ -121,7 +121,7 @@ class RetrievalService:
         the embedding call fails, returns an empty list so the rest of the
         chat flow (metrics + coverage) still completes.
         """
-        # Short-circuit if OpenAI key is absent — evidence retrieval depends
+        # Short-circuit if OpenAI key is absent - evidence retrieval depends
         # on OpenAI embeddings regardless of which LLM drives the chat answer.
         if not settings.openai_api_key:
             return []
@@ -144,7 +144,7 @@ class RetrievalService:
         query_text = " ".join(query_parts)
 
         # Generate query embedding (async). On any OpenAI failure, degrade
-        # gracefully — the rest of the chat flow (metrics + coverage) is not
+        # gracefully - the rest of the chat flow (metrics + coverage) is not
         # blocked by missing evidence snippets.
         try:
             embeddings = await self.embedding_generator.embed_texts(
@@ -256,7 +256,7 @@ class RetrievalService:
 
         total = sum(s["review_count"] for s in per_society)
 
-        # Per-source breakdown — reviews (filtered to scoped societies if given)
+        # Per-source breakdown - reviews (filtered to scoped societies if given)
         per_source_counts: list[SourceCount] = []
         reviews_by_source = self.session.query(
             PublicReview.source_id, func.count(PublicReview.id)
@@ -279,7 +279,7 @@ class RetrievalService:
                 )
             )
 
-        # Content mentions (forum + editorial) — surfaced separately so the UI
+        # Content mentions (forum + editorial) - surfaced separately so the UI
         # can show them as a distinct band in the coverage chart.
         mentions_by_source_query = self.session.query(
             ContentMention.source_id, func.count(ContentMention.id)

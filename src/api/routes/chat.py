@@ -109,7 +109,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
                 "Based on public reviews which may over-represent customers with strong opinions"
             )
         if coverage.total_reviews_considered < 100:
-            limitations.append("Limited sample size — results should be treated as indicative")
+            limitations.append("Limited sample size - results should be treated as indicative")
 
         return ChatResponse(
             session_id=session["id"],
@@ -173,7 +173,7 @@ async def chat_stream(request: ChatRequest):
                     "Based on public reviews which may over-represent customers with strong opinions"
                 )
             if coverage.total_reviews_considered < 100:
-                limitations.append("Limited sample size — results should be treated as indicative")
+                limitations.append("Limited sample size - results should be treated as indicative")
 
             metadata = ChatStreamMetadata(
                 session_id=session["id"],

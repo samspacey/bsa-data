@@ -40,7 +40,7 @@ const ord = (n: number) => {
 function buildEmailBody(society: Society): string {
   const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const lines: string[] = [
-    `Benchmark report — ${society.name}`,
+    `Benchmark report - ${society.name}`,
     `Seven-factor comparison vs 42 UK building societies`,
     `Generated ${today} · Woodhurst Consulting`,
     "",
@@ -48,7 +48,7 @@ function buildEmailBody(society: Society): string {
   scores.forEach(s => {
     const diff = s.score - s.avg;
     lines.push(
-      `${s.factor}: ${s.score.toFixed(1)} / 10 — sector avg ${s.avg.toFixed(1)} (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}), ranked ${ord(s.rank)} of 42, ${s.reviews} reviews`
+      `${s.factor}: ${s.score.toFixed(1)} / 10 - sector avg ${s.avg.toFixed(1)} (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}), ranked ${ord(s.rank)} of 42, ${s.reviews} reviews`
     );
   });
   lines.push("", "Derived from keyword sentiment analysis of Smart Money People, Trustpilot, app store, Feefo and editorial sources. Methodology: https://bsa-member-chat.vercel.app/");
@@ -68,7 +68,7 @@ export function BenchmarkModal({ society, onClose }: Props) {
 
   const handleEmail = () => {
     const to = emailInput.trim();
-    const subject = encodeURIComponent(`${society.short} — BSA benchmark report`);
+    const subject = encodeURIComponent(`${society.short} - BSA benchmark report`);
     const body = encodeURIComponent(buildEmailBody(society));
     const recipient = to ? encodeURIComponent(to) : "";
     // mailto opens the user's default mail client with the report pre-filled.

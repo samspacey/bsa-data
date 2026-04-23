@@ -25,22 +25,22 @@ export interface ChatMessage {
 
 export const sampleConversation: Record<string, ChatMessage[]> = {
   loyalist: [
-    { role: "assistant", text: "Oh, hello there. Are you from Monmouthshire? How lovely. I've been a member for longer than I care to admit — do sit down. I always enjoy having a chat about the society." },
-    { role: "user", text: "Hi Margaret — thanks for making time. How have you been finding things lately?" },
+    { role: "assistant", text: "Oh, hello there. Are you from Monmouthshire? How lovely. I've been a member for longer than I care to admit - do sit down. I always enjoy having a chat about the society." },
+    { role: "user", text: "Hi Margaret - thanks for making time. How have you been finding things lately?" },
     { role: "assistant", text: "Well, truthfully, I'm a little worried. They've shortened the hours at my branch in Abergavenny again. Tuesdays and Thursdays close at three now. It sounds small but when you've organised your week around popping in on a Thursday afternoon for thirty years, it matters.", cites: [35] },
     { role: "user", text: "That sounds frustrating. Do the staff there know you?" },
-    { role: "assistant", text: "Oh yes. Eirwen knew my husband, God rest him, and she always asks after the grandchildren. That's why I go — it's not just banking, it's a little social outing. I'd hate for that to go.", cites: [22, 41] },
+    { role: "assistant", text: "Oh yes. Eirwen knew my husband, God rest him, and she always asks after the grandchildren. That's why I go - it's not just banking, it's a little social outing. I'd hate for that to go.", cites: [22, 41] },
     { role: "user", text: "What do you make of their savings rates?" },
     { role: "assistant", text: "Well, my son keeps telling me I could get more elsewhere. He sends me these comparison websites. But I'd rather a half-percent less and know the people I'm dealing with, honestly.", cites: [27] },
   ],
   digital: [
-    { role: "assistant", text: "Hey — yeah, happy to talk. I've been with the society about eighteen months now. Picked them over Monzo for my first mortgage because a friend said the service was properly human. So… early verdict: yes on the service, meh on the tech." },
+    { role: "assistant", text: "Hey - yeah, happy to talk. I've been with the society about eighteen months now. Picked them over Monzo for my first mortgage because a friend said the service was properly human. So… early verdict: yes on the service, meh on the tech." },
   ],
   family: [
-    { role: "assistant", text: "Hi — yes, got ten minutes between school pickup and tea. The mortgage is up for renewal in August which is already giving me ulcers. And we've got the kids' savings accounts with you too, so there's a lot riding on this relationship right now." },
+    { role: "assistant", text: "Hi - yes, got ten minutes between school pickup and tea. The mortgage is up for renewal in August which is already giving me ulcers. And we've got the kids' savings accounts with you too, so there's a lot riding on this relationship right now." },
   ],
   business: [
-    { role: "assistant", text: "Good to meet you. I've run the engineering firm in Kendal for twenty-two years and banked with the society for most of them. Personal and business. That matters — I don't want to be speaking to a different person every time the phone rings." },
+    { role: "assistant", text: "Good to meet you. I've run the engineering firm in Kendal for twenty-two years and banked with the society for most of them. Personal and business. That matters - I don't want to be speaking to a different person every time the phone rings." },
   ],
 };
 
@@ -50,11 +50,11 @@ export const suggestedPrompts: Record<string, string[]> = {
     "Tell me about the last time you walked out of the branch annoyed.",
     "If we closed Abergavenny tomorrow, what would that actually mean to you?",
     "What do you talk about at bingo when the society comes up?",
-    "Read me the last letter we sent you — what did you make of it?",
+    "Read me the last letter we sent you - what did you make of it?",
   ],
   digital: [
     "If the app broke for a week, would you still stay?",
-    "When did you last recommend us — and what did you actually say?",
+    "When did you last recommend us - and what did you actually say?",
     "What do our competitors do that we don't?",
     "Describe the sign-up flow in three honest words.",
   ],

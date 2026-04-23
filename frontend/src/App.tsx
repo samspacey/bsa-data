@@ -75,7 +75,7 @@ function App() {
     );
   }
 
-  // Fallback — send back to screensaver if state got inconsistent.
+  // Fallback - send back to screensaver if state got inconsistent.
   return <Screensaver onEnter={() => setScreen("society")} />;
 }
 
