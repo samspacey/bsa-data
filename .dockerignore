@@ -1,0 +1,22 @@
+# Don't bake secrets into the image
+.env
+.env.*
+!.env.example
+
+# Frontend is deployed separately via Vercel
+frontend/
+
+# Dev caches + VCS
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.DS_Store
+
+# Local plans / notes
+.claude/

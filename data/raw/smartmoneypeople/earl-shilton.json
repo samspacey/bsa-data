@@ -1,0 +1,20 @@
+{
+  "society_id": "earl-shilton",
+  "source_id": "smartmoneypeople",
+  "scraped_at": "2025-11-28T14:56:57.123224",
+  "review_count": 1,
+  "reviews": [
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_earl-shilton_2025-03-07T11:53:49+00:00_8462",
+      "building_society_id": "earl-shilton",
+      "review_date": "2025-03-07",
+      "rating": 5,
+      "title": null,
+      "body": "Phone them and after a few button clicks on the phone and you are through to a helpful human being. No listening to music for seemingly hours, as with some. They understand your query and give good and helpful advice.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

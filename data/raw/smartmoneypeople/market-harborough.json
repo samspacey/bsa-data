@@ -1,0 +1,44 @@
+{
+  "society_id": "market-harborough",
+  "source_id": "smartmoneypeople",
+  "scraped_at": "2025-11-28T14:57:35.567630",
+  "review_count": 3,
+  "reviews": [
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_market-harborough_2025-06-12T17:07:58+01:00_6576",
+      "building_society_id": "market-harborough",
+      "review_date": "2025-06-12",
+      "rating": 5,
+      "title": null,
+      "body": "Excellent building society, friendly, knowledgeable staff, counter always well manned, interest rates not always the highest but one of the best on the high street, best of all, you can still get am old fashioned pass book to maintain your account.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_market-harborough_2025-02-26T13:46:25+00:00_6639",
+      "building_society_id": "market-harborough",
+      "review_date": "2025-02-26",
+      "rating": 5,
+      "title": null,
+      "body": "Although not always offering the best rates available, MHBC have changed that with this regular savers account. Not only does it offer an attractive interest rate, it allows the saver to be flexible with the amount they save each month, very handy if you're working on a restricted budget. For me, the fact I can manage my account in branch is a huge benefit, the staff are friendly and very know on their products. I find being able talk to an advisor face to face is a far better experience than either a phone call or online chat. The fact that you are still offered a passbook is another big plus in my opinion, it feels nice to have something physical in your hand and to be able to look at your balance without going online.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_market-harborough_2024-10-23T15:39:01+01:00_1256",
+      "building_society_id": "market-harborough",
+      "review_date": "2024-10-23",
+      "rating": 5,
+      "title": null,
+      "body": "Knowledgeable and helpful people to help me open an account",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

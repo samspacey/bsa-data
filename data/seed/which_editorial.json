@@ -1,0 +1,19 @@
+{
+  "_readme": "Curated Which? Money editorial ratings per society. Keys are building-society IDs. Populate from public Which? summary pages before demo. Rating scale is typically 0-5.",
+  "_example": {
+    "nationwide": [
+      {
+        "category": "Current Accounts",
+        "rating_value": 4.5,
+        "rating_scale_max": 5.0,
+        "summary": "Which? rates Nationwide's current accounts among the top UK providers for customer score and product quality (placeholder).",
+        "source_url": "https://www.which.co.uk/reviews/current-account-providers"
+      }
+    ]
+  },
+  "nationwide": [],
+  "coventry": [],
+  "yorkshire": [],
+  "skipton": [],
+  "leeds": []
+}

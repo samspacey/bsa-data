@@ -1,0 +1,44 @@
+{
+  "society_id": "teachers",
+  "source_id": "trustpilot",
+  "scraped_at": "2025-11-28T14:50:40.655437",
+  "review_count": 3,
+  "reviews": [
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "690ceaa732e4bea5c8991379",
+      "building_society_id": "teachers",
+      "review_date": "2025-11-06",
+      "rating": 1,
+      "title": "Awful archaic systems and processes",
+      "body": "Awful archaic systems and processes. Everything is paper-based. They're a bit like a 1980s Skoda. The good thing is that they fully admit to how outdated their systems are!",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "65e3774960415f8d69e4a0d8",
+      "building_society_id": "teachers",
+      "review_date": "2024-03-02",
+      "rating": 1,
+      "title": "They posted my login details to the…",
+      "body": "They posted my login details to the wrong address (twice); despite providing exactly the right address. Provided a measly £50 compensation.Insist on hand-filled applications (in 2023). Use an archaic transfer system for ISA transfers. Transferring my ISA in took months; cost me £151.90 in lost interest.I would not recommend Teachers Building Society.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "65a2ec1641288647d7073c42",
+      "building_society_id": "teachers",
+      "review_date": "2024-01-13",
+      "rating": 1,
+      "title": "Unfortunately",
+      "body": "Unfortunately, not a happy experience for my wife and me. Logging in could be easier and I recommend that the Society should review all its procedures. I did receive a four page letter of explanations and apologies but even that contained a significant time-sensitive error. How can we operate accounts when a Society makes significant mistakes?",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

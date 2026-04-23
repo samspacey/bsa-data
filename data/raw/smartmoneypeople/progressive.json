@@ -1,0 +1,32 @@
+{
+  "society_id": "progressive",
+  "source_id": "smartmoneypeople",
+  "scraped_at": "2025-11-28T14:58:02.463882",
+  "review_count": 2,
+  "reviews": [
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_progressive_2022-05-27T09:37:02+01:00_3561",
+      "building_society_id": "progressive",
+      "review_date": "2022-05-27",
+      "rating": 5,
+      "title": null,
+      "body": "Couldn’t be happier with how it went, Progressive been great from 1st correspondence to moving into new house",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_progressive_2021-10-02T11:39:49+01:00_9493",
+      "building_society_id": "progressive",
+      "review_date": "2021-10-02",
+      "rating": 5,
+      "title": null,
+      "body": "great savings isa helps generate better income than basic savings  rate currently on offer and is tax free as well",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

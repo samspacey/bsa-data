@@ -34,6 +34,7 @@ export interface ReviewSnippet {
   aspects: string[];
   topics: string[];
   snippet_text: string;
+  source_url?: string | null;
 }
 
 export interface PerSocietyReviewCount {
@@ -42,11 +43,20 @@ export interface PerSocietyReviewCount {
   review_count: number;
 }
 
+export interface SourceCount {
+  source_id: string;
+  source_name: string;
+  count: number;
+}
+
 export interface DataCoverage {
   snapshot_end_date: string;
   sources: string[];
   total_reviews_considered: number;
   per_society_review_counts: PerSocietyReviewCount[];
+  per_source_counts: SourceCount[];
+  includes_mentions: boolean;
+  mentions_considered: number;
 }
 
 export interface ChatResponse {
@@ -57,11 +67,56 @@ export interface ChatResponse {
   data_coverage: DataCoverage | null;
   assumptions: string[];
   limitations: string[];
+  followups: string[];
+}
+
+export interface ChatStreamMetadata {
+  session_id: string;
+  metrics: MetricSummary[];
+  evidence_snippets: ReviewSnippet[];
+  data_coverage: DataCoverage | null;
+  assumptions: string[];
+  limitations: string[];
+}
+
+/**
+ * Callbacks for consuming a streamed chat response.
+ *
+ * Event order: metadata → many tokens → followups → done.
+ * Any unhandled error is delivered to onError.
+ */
+export interface StreamHandlers {
+  onMetadata: (meta: ChatStreamMetadata) => void;
+  onToken: (text: string) => void;
+  onFollowups: (followups: string[]) => void;
+  onDone: () => void;
+  onError: (err: Error) => void;
+}
+
+export interface PersonaSpec {
+  id: string;
+  name: string;
+  first_name: string;
+  age: string;
+  detail: string;
+  concerns: string[];
 }
 
 export interface ChatRequest {
   message: string;
   session_id?: string;
+  society_id?: string;
+  persona?: PersonaSpec;
+}
+
+export interface FeaturedReview {
+  id: number;
+  quote: string;
+  rating: number;
+  review_date: string;
+  society_id: string;
+  society_name: string;
+  source_id: string;
 }
 
 // Re-export ChatResponse for components that import from client.ts

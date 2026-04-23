@@ -1,0 +1,32 @@
+{
+  "society_id": "cambridge",
+  "source_id": "smartmoneypeople",
+  "scraped_at": "2025-11-28T14:56:40.012605",
+  "review_count": 2,
+  "reviews": [
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_cambridge_2024-12-15T11:22:07+00:00_8999",
+      "building_society_id": "cambridge",
+      "review_date": "2024-12-15",
+      "rating": 5,
+      "title": null,
+      "body": "Quick sign up. Excellent website and app. Had to secure message them for a query and my message was dealt within a few hours. Fast payments are in within a couple if hours.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_cambridge_2021-04-16T18:29:06+01:00_9918",
+      "building_society_id": "cambridge",
+      "review_date": "2021-04-16",
+      "rating": 5,
+      "title": null,
+      "body": "The Cambridge Building Society really tries to help both its savers and borrowers, they are always trying to do their best, and make sure that you fully understand everything you need to know, its mortgage products are spot on and its range of savings products is exceptional,the rates paid are one of the best in the market, I thoroughly recommend them",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

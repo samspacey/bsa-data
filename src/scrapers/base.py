@@ -1,18 +1,27 @@
-"""Base scraper class with common functionality."""
+"""Base scraper class with common functionality.
+
+Shared by review scrapers (Trustpilot, App Store, Feefo, Play Store, SMP,
+Google) and mention scrapers (Reddit, MSE, Fairer Finance, Which?). The base
+only concerns itself with HTTP, retries, rate limiting, and JSON
+serialization — individual scrapers choose whether to emit ``RawReview`` or
+``RawMention`` objects.
+"""
 
 import json
 import time
 from abc import ABC, abstractmethod
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.config.settings import settings
 from src.config.societies import BuildingSociety
-from src.data.schemas import RawReview
+from src.data.schemas import RawMention, RawReview
+
+ScrapedItem = Union[RawReview, RawMention]
 
 
 class BaseScraper(ABC):
@@ -87,8 +96,8 @@ class BaseScraper(ABC):
         society: BuildingSociety,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-    ) -> list[RawReview]:
-        """Scrape reviews for a specific building society.
+    ) -> list[ScrapedItem]:
+        """Scrape reviews or mentions for a specific building society.
 
         Args:
             society: The building society to scrape
@@ -96,7 +105,7 @@ class BaseScraper(ABC):
             end_date: Optional end date filter
 
         Returns:
-            List of raw review data
+            List of raw scraped items (``RawReview`` or ``RawMention``)
         """
         pass
 
@@ -105,7 +114,7 @@ class BaseScraper(ABC):
         societies: list[BuildingSociety],
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-    ) -> dict[str, list[RawReview]]:
+    ) -> dict[str, list[ScrapedItem]]:
         """Scrape reviews for all societies.
 
         Args:
@@ -130,15 +139,11 @@ class BaseScraper(ABC):
             self._rate_limit()
         return results
 
-    def save_reviews(self, society_id: str, reviews: list[RawReview]) -> Path:
-        """Save reviews to JSON file.
+    def save_reviews(self, society_id: str, reviews: list[ScrapedItem]) -> Path:
+        """Save scraped items (reviews or mentions) to JSON file.
 
-        Args:
-            society_id: Building society ID
-            reviews: List of reviews to save
-
-        Returns:
-            Path to saved file
+        Kept named ``save_reviews`` for backwards compatibility; works for
+        ``RawReview`` and ``RawMention`` alike via pydantic's ``model_dump``.
         """
         output_file = self.output_dir / self.source_id / f"{society_id}.json"
         output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -158,13 +163,9 @@ class BaseScraper(ABC):
         return output_file
 
     def load_reviews(self, society_id: str) -> list[RawReview]:
-        """Load reviews from JSON file.
+        """Load review JSON back as ``RawReview`` objects.
 
-        Args:
-            society_id: Building society ID
-
-        Returns:
-            List of reviews
+        For mention scrapers, load the JSON directly rather than using this.
         """
         input_file = self.output_dir / self.source_id / f"{society_id}.json"
         if not input_file.exists():

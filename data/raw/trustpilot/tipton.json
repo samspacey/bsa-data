@@ -1,0 +1,80 @@
+{
+  "society_id": "tipton",
+  "source_id": "trustpilot",
+  "scraped_at": "2025-11-28T14:50:43.039369",
+  "review_count": 6,
+  "reviews": [
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "6911ec0c6e3d49ab1d099d5e",
+      "building_society_id": "tipton",
+      "review_date": "2025-11-10",
+      "rating": 1,
+      "title": "Shambolic website that simply doesn't…",
+      "body": "Shambolic website that simply doesn't work.What idiot coded this rubbish and who tested it?",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "68dea334222f2cb0c9b46044",
+      "building_society_id": "tipton",
+      "review_date": "2025-10-02",
+      "rating": 5,
+      "title": "Show stopper, Incredible staff, service and criteria",
+      "body": "Cant thank my AMAZING BDM Joanna Ridgeway enough for all her hard work on complex purchase case which was submitted on the 2nd of September and completed on the 1st October. Thank you Joanna Ridgeway, Sophie Jagpal underwriter who made myself and clients family happy with efficiency of application!",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "67f7bdb6773edbb74b447c10",
+      "building_society_id": "tipton",
+      "review_date": "2025-04-10",
+      "rating": 1,
+      "title": "If I could give no stars I would",
+      "body": "If I could give no stars I would. Daughters account in my name. She is 12. We have taken payments out for decoration for her bedroom and school residential trips and items for her.Every time I’ve gone to Sedgley branch two vile judgemental very sad women work there. They have done nothing but question every transaction, which is wrong. It’s confidential and to be honest nothing at all to do with you. They rejected my request for a cheque today. The reason apparently compliance had flagged the transactions for being so many in a few months. It was a month to month spend. We didn’t estimate a total cost. Again nothing to do with them. Said they would only now issue in her name to her account. She 12 and is not legally allowed to have a current account. I’ve complained to them.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "67b474dd050eeeabc098753c",
+      "building_society_id": "tipton",
+      "review_date": "2025-02-18",
+      "rating": 1,
+      "title": "I wasted a lot of time",
+      "body": "I wasted a lot of time trying to set up a 60 Day Notice Account.It's phone only so first of all you are expected to read large documents on your phone before proceeding. Then there is a long form, far more suited to typing on a PC keyboard than a phone. I entered personal data but when I got to entering my address I could not could not proceed - mandatory fields not dilled in - even though i filled in ALL of the fields and experimented with different formats.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "67617c96ccfa2a86d6025b74",
+      "building_society_id": "tipton",
+      "review_date": "2024-12-17",
+      "rating": 5,
+      "title": "Remortgage",
+      "body": "Recently remortgaged with them, couple of hiccups in the process but they have owned the mistakes and fixed them really quickly. Hats off to their customer service, and feel in safe hands!",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "65c352d192700e233a878ff1",
+      "building_society_id": "tipton",
+      "review_date": "2024-02-07",
+      "rating": 1,
+      "title": "App failing, email and phone unanswered",
+      "body": "App failing for everyone, no information from company.  No response to email sent 6 days ago. If you try to telephone just get a recorded message saying they are not answering calls at this time!",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

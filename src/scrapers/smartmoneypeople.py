@@ -319,9 +319,10 @@ class SmartMoneyPeopleScraper(BaseScraper):
 
         all_reviews = []
         seen_ids = set()  # Dedupe by ID
-        page = 1
-        max_pages = 50  # Safety limit
+        max_pages = 200  # Raised from 50 — Nationwide/Yorkshire have many pages
         reviews_per_page = 10  # Estimate
+        consecutive_empty = 0
+        empty_page_tolerance = 3
 
         # Fetch first page
         url = self._get_society_url(slug)
@@ -332,8 +333,10 @@ class SmartMoneyPeopleScraper(BaseScraper):
                 return []
 
             total_reviews = self._get_total_reviews(response.text)
-            total_pages = min((total_reviews // reviews_per_page) + 1, max_pages)
-            print(f"  Found ~{total_reviews} reviews across ~{total_pages} pages")
+            # Use the known count as a guide, but iterate up to max_pages so
+            # we don't stop short if the count parser missed a "load more" block.
+            estimated_pages = min((total_reviews // reviews_per_page) + 2, max_pages)
+            print(f"  Found ~{total_reviews} reviews across ~{estimated_pages} pages")
 
             # Parse first page
             reviews = self._extract_json_ld_reviews(response.text, society.id)
@@ -349,11 +352,11 @@ class SmartMoneyPeopleScraper(BaseScraper):
             print(f"  Error fetching first page: {e}")
             return []
 
-        # Try different pagination methods
-        for page in range(2, total_pages + 1):
+        # Paginate to the safety cap; stop after several consecutive empty pages.
+        upper_bound = max(estimated_pages, max_pages)
+        for page in range(2, upper_bound + 1):
             self._rate_limit()
 
-            # Try page parameter
             url = self._get_society_url(slug, page)
             try:
                 response = self._fetch_url(url)
@@ -370,10 +373,14 @@ class SmartMoneyPeopleScraper(BaseScraper):
                         new_count += 1
 
                 if new_count == 0:
-                    print(f"  No new reviews on page {page}, stopping")
-                    break
-
-                print(f"  Page {page}: {new_count} new reviews")
+                    consecutive_empty += 1
+                    print(f"  Page {page}: 0 new reviews ({consecutive_empty}/{empty_page_tolerance} empty)")
+                    if consecutive_empty >= empty_page_tolerance:
+                        print(f"  Stopping after {consecutive_empty} consecutive empty pages")
+                        break
+                else:
+                    consecutive_empty = 0
+                    print(f"  Page {page}: {new_count} new reviews (total {len(all_reviews)})")
 
                 # Check date bounds
                 if start_date and reviews:
@@ -384,6 +391,9 @@ class SmartMoneyPeopleScraper(BaseScraper):
 
             except Exception as e:
                 print(f"  Error on page {page}: {e}")
+                consecutive_empty += 1
+                if consecutive_empty >= empty_page_tolerance:
+                    break
                 continue
 
         # Filter by date if specified

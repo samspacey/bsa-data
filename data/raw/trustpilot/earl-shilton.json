@@ -1,0 +1,32 @@
+{
+  "society_id": "earl-shilton",
+  "source_id": "trustpilot",
+  "scraped_at": "2025-11-28T14:48:43.398678",
+  "review_count": 2,
+  "reviews": [
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "64d694fff4d5927a35d9a11a",
+      "building_society_id": "earl-shilton",
+      "review_date": "2023-08-11",
+      "rating": 5,
+      "title": "As recommended this week by Money…",
+      "body": "As recommended this week by Money Saving Expert with highest savings interest rate we opened accounts today.From the initial phone calls to actual meeting today has been a great personal experience.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "5e4172103c93ae04c0de52f4",
+      "building_society_id": "earl-shilton",
+      "review_date": "2020-02-10",
+      "rating": 5,
+      "title": "Fantastic customer service received",
+      "body": "Just opened an account in person with my elderly wheelchair bound Mother, the Customer Service was excellent, in fact it could not of been any better. What a refreshingly pleasant experience, highest standards of customer care.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

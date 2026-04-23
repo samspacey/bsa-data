@@ -1,0 +1,32 @@
+{
+  "society_id": "penrith",
+  "source_id": "smartmoneypeople",
+  "scraped_at": "2025-11-28T14:58:00.005384",
+  "review_count": 2,
+  "reviews": [
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_penrith_2025-04-22T17:52:46+01:00_7241",
+      "building_society_id": "penrith",
+      "review_date": "2025-04-22",
+      "rating": 5,
+      "title": null,
+      "body": "Easy access savings , children’s savings , regular savings and term accounts with good interest rates.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_penrith_2021-04-07T15:13:43+01:00_1872",
+      "building_society_id": "penrith",
+      "review_date": "2021-04-07",
+      "rating": 5,
+      "title": null,
+      "body": "Staff give the impression of knowing/remembering me so I feel a valued customer.  I feel they are committed to me and in response I am committed to them.  They are always polite, friendly, efficient and helpful.\r\nThe building society has, in a very difficult market, tried to ensure savers get a fair deal.\r\nI may be wrong but think that their Board don't get such huge salaries+bonuses as some building societies so that members get more of the benefit.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

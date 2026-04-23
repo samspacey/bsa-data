@@ -1,0 +1,44 @@
+{
+  "society_id": "buckinghamshire",
+  "source_id": "trustpilot",
+  "scraped_at": "2025-11-28T14:48:24.415881",
+  "review_count": 3,
+  "reviews": [
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "630f6b4d6a3e1ed2c3c5c694",
+      "building_society_id": "buckinghamshire",
+      "review_date": "2022-08-31",
+      "rating": 1,
+      "title": "This company is untrustworthy",
+      "body": "This company is completely untrustworthy.  They have just reneged on hundreds of mortgage deals for customers who have already submitted applications.  Purely because they can't/won't honour the lower rates. Treat your customer fairly means nothing to this company.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "62a70d106d54f92107144580",
+      "building_society_id": "buckinghamshire",
+      "review_date": "2022-06-21",
+      "rating": 5,
+      "title": "Excellent customer services and would recommend",
+      "body": "Have never had any accounts with the Buckinghamshire Building Society before but saw a good rate on a fixed term ISA and decided to apply. It is a shame that the application process does not include an online procedure but it was no problem completing the application form and ISA transfer form and posting them in along with ID documentation (uncertified copies are acceptable and do not need to be counter-signed by a solicitor etc)Needed to contact them on Saturday concerning the application and sent a message through their web contact form and received a reply the same morning - very impressed.Now just waitiing for the account to be opened and account number forwarded to me so that I can view the account online.So far so good and very impressed. Would recommend them.Edit : Account set up quickly. Rang customer services, phone answered promptly, very knowledgeable, helpful and efficient staff. Can't recommend highly enough",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "620ead44441cb9c2473c7220",
+      "building_society_id": "buckinghamshire",
+      "review_date": "2022-02-17",
+      "rating": 1,
+      "title": "?? YOU TRUST BUCKS WITH YOUR SAVINGS ??",
+      "body": "I had had modest savings with Bucks Building Society since the 1990's, but then they took away my savings from me, only telling me when I phoned that the account had been closed. After a lot of worry that I had been scammed, it turned out that Bucks themselves had closed my account and taken my savings! The FOS  tell me there were a number of similar closures around this time.Well, I got my savings back ..... eventually ..... but then they reckoned I was only due £1.35 in interest. When I queried this, it turned out the correct figure was over £40!SO IF YOU WANT A SOCIETY THAT TAKES YOUR MONEY AWAY FROM YOU WITHOUT YOUR CONSENT, AND THEN TRIES TO GET AWAY WITH PAYING YOU A FRACTION OF THE INTEREST YOU ARE DUE, GO TO THE BUCKS!I corresponded directly with the Chief Executive, Board of Directors, and Head of Operations after the problem became apparent. They took months dealing with things, and, when I further complained about their service, they took weeks looking into this and then the person who had dealt with the original case (Yes, the person I was complaining about!) reviewed the case and advised their service was perfect!........ (REALLY??? ......A RESPECTED FINANCIAL INSTITUTION THAT CALCULATES INTEREST  AT  £1.35 RATHER THAN OVER £40 .....PERFECT ??????).If I had not queried things, I would have been left with just £1.35 interest. And if I hadn't complained after discovering my money had been taken, I'D HAVE HAD NO SAVINGS, AND NO INTEREST!",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

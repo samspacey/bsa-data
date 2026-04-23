@@ -19,6 +19,12 @@ class BuildingSociety:
     aliases: List[str] = field(default_factory=list)
     notes: str = ""
 
+    # Phase 1 additions — optional, populated as we onboard each new source
+    google_place_id: Optional[str] = None  # Google Maps CID for branch-level reviews
+    fairer_finance_slug: Optional[str] = None  # slug for fairerfinance.com/providers/{slug}
+    subreddit_terms: List[str] = field(default_factory=list)  # Extra Reddit search terms
+    mse_keywords: List[str] = field(default_factory=list)  # Extra MSE search keywords
+
 
 # All 42 BSA member building societies
 # Ordered by size: mega -> large -> regional -> small

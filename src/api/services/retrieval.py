@@ -11,6 +11,7 @@ from src.config.settings import settings
 from src.config.societies import SOCIETY_BY_ID
 from src.data.models import (
     BuildingSociety,
+    ContentMention,
     DataSource,
     PublicReview,
     SentimentAspect,
@@ -23,6 +24,7 @@ from src.data.schemas import (
     QueryIntent,
     ReviewSnippet,
     SentimentLabel,
+    SourceCount,
 )
 from src.embeddings.generator import EmbeddingGenerator
 from src.embeddings.index import VectorIndex
@@ -115,13 +117,15 @@ class RetrievalService:
     ) -> list[ReviewSnippet]:
         """Get evidence snippets using semantic search.
 
-        Args:
-            intent: Parsed query intent
-            limit: Maximum snippets to return
-
-        Returns:
-            List of review snippets
+        Requires an OpenAI key (embeddings provider). If the key is missing or
+        the embedding call fails, returns an empty list so the rest of the
+        chat flow (metrics + coverage) still completes.
         """
+        # Short-circuit if OpenAI key is absent — evidence retrieval depends
+        # on OpenAI embeddings regardless of which LLM drives the chat answer.
+        if not settings.openai_api_key:
+            return []
+
         # Build query text for embedding
         query_parts = []
 
@@ -139,9 +143,17 @@ class RetrievalService:
 
         query_text = " ".join(query_parts)
 
-        # Generate query embedding (async)
-        embeddings = await self.embedding_generator.embed_texts([query_text], show_progress=False)
-        query_vector = embeddings[0]
+        # Generate query embedding (async). On any OpenAI failure, degrade
+        # gracefully — the rest of the chat flow (metrics + coverage) is not
+        # blocked by missing evidence snippets.
+        try:
+            embeddings = await self.embedding_generator.embed_texts(
+                [query_text], show_progress=False
+            )
+            query_vector = embeddings[0]
+        except Exception as e:  # noqa: BLE001 - scraper/embedding provider is external
+            print(f"Embedding call failed ({type(e).__name__}): {e}")
+            return []
 
         # Determine sentiment filter
         sentiment_labels = None
@@ -162,24 +174,35 @@ class RetrievalService:
             aspects=intent.focus_areas if intent.focus_areas else None,
         )
 
+        # Bulk-lookup source_urls for the retrieved review IDs in one query
+        review_ids = [result.get("id") for result in results[:limit] if result.get("id") is not None]
+        url_by_review_id: dict[int, str] = {}
+        if review_ids:
+            try:
+                rows = (
+                    self.session.query(PublicReview.id, PublicReview.source_url)
+                    .filter(PublicReview.id.in_(review_ids))
+                    .all()
+                )
+                url_by_review_id = {rid: url for rid, url in rows if url}
+            except Exception:  # noqa: BLE001
+                url_by_review_id = {}
+
         # Convert to snippets
         snippets = []
         for result in results[:limit]:
             society = SOCIETY_BY_ID.get(result["building_society_id"])
 
-            # Get source name
             source = self.session.query(DataSource).filter(
                 DataSource.id == result["source_id"]
             ).first()
             source_name = source.name if source else result["source_id"]
 
-            # Parse sentiment label
             try:
                 sentiment = SentimentLabel(result["sentiment_label"])
             except ValueError:
                 sentiment = SentimentLabel.NEUTRAL
 
-            # Truncate text for snippet
             text = result["text"]
             if len(text) > 300:
                 text = text[:297] + "..."
@@ -196,6 +219,7 @@ class RetrievalService:
                     aspects=json.loads(result["aspects"]) if result["aspects"] else [],
                     topics=json.loads(result["topics"]) if result["topics"] else [],
                     snippet_text=text,
+                    source_url=url_by_review_id.get(result.get("id")),
                 )
             )
 
@@ -205,24 +229,16 @@ class RetrievalService:
         self,
         intent: QueryIntent,
     ) -> DataCoverage:
-        """Get data coverage information.
-
-        Args:
-            intent: Query intent
-
-        Returns:
-            Data coverage summary
-        """
+        """Get data coverage information, including per-source breakdown."""
         society_ids = intent.primary_building_societies + intent.comparison_building_societies
 
-        # Get snapshot end date
         max_date = self.session.query(func.max(PublicReview.review_date)).scalar()
 
-        # Get sources used
-        sources = self.session.query(DataSource.name).distinct().all()
-        source_names = [s[0] for s in sources]
+        sources = self.session.query(DataSource).all()
+        source_name_by_id = {s.id: s.name for s in sources}
+        source_names = list(source_name_by_id.values())
 
-        # Count reviews per society
+        # Count reviews per society (for the primary societies in scope).
         per_society = []
         for society_id in society_ids:
             count = (
@@ -240,9 +256,60 @@ class RetrievalService:
 
         total = sum(s["review_count"] for s in per_society)
 
+        # Per-source breakdown — reviews (filtered to scoped societies if given)
+        per_source_counts: list[SourceCount] = []
+        reviews_by_source = self.session.query(
+            PublicReview.source_id, func.count(PublicReview.id)
+        )
+        if society_ids:
+            reviews_by_source = reviews_by_source.filter(
+                PublicReview.building_society_id.in_(society_ids)
+            )
+        reviews_by_source = (
+            reviews_by_source.filter(PublicReview.is_flagged_for_exclusion == False)  # noqa: E712
+            .group_by(PublicReview.source_id)
+            .all()
+        )
+        for source_id, count in reviews_by_source:
+            per_source_counts.append(
+                SourceCount(
+                    source_id=source_id,
+                    source_name=source_name_by_id.get(source_id, source_id),
+                    count=count,
+                )
+            )
+
+        # Content mentions (forum + editorial) — surfaced separately so the UI
+        # can show them as a distinct band in the coverage chart.
+        mentions_by_source_query = self.session.query(
+            ContentMention.source_id, func.count(ContentMention.id)
+        )
+        if society_ids:
+            mentions_by_source_query = mentions_by_source_query.filter(
+                ContentMention.building_society_id.in_(society_ids)
+            )
+        mentions_by_source = mentions_by_source_query.group_by(ContentMention.source_id).all()
+
+        mentions_total = 0
+        for source_id, count in mentions_by_source:
+            per_source_counts.append(
+                SourceCount(
+                    source_id=source_id,
+                    source_name=source_name_by_id.get(source_id, source_id),
+                    count=count,
+                )
+            )
+            mentions_total += count
+
+        # Sort descending by count for a clean chart render
+        per_source_counts.sort(key=lambda s: s.count, reverse=True)
+
         return DataCoverage(
             snapshot_end_date=max_date or date.today(),
             sources=source_names,
             total_reviews_considered=total,
             per_society_review_counts=per_society,
+            per_source_counts=per_source_counts,
+            includes_mentions=mentions_total > 0,
+            mentions_considered=mentions_total,
         )

@@ -1,0 +1,20 @@
+{
+  "society_id": "mansfield",
+  "source_id": "trustpilot",
+  "scraped_at": "2025-11-28T14:49:21.360154",
+  "review_count": 1,
+  "reviews": [
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "66cc401ffb27386355752f51",
+      "building_society_id": "mansfield",
+      "review_date": "2024-08-26",
+      "rating": 4,
+      "title": "Traditional local building society",
+      "body": "Traditional local building society, steeped in history that provides an excellent service and savings rates.Lovely staff, very helpful and easy to contact them by phone with no long wait.I always support local and mutual societies.Only recent problem has been they sent me some forms - I asked for 2 and they only sent one ! And they put on a 2nd class stamp rather than a 2nd large ! Cost me £1.50 in excess postage charges !Would have been 5 stars but for this.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

@@ -12,6 +12,9 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        # Treat empty env vars as unset so .env values win over inherited blanks
+        # from the shell (e.g. an empty ANTHROPIC_API_KEY exported in a parent).
+        env_ignore_empty=True,
     )
 
     # Paths
@@ -25,9 +28,13 @@ class Settings(BaseSettings):
     sqlite_db_path: Path = db_dir / "bsa.db"
     lancedb_path: Path = db_dir / "lancedb"
 
-    # OpenAI
+    # Anthropic (primary LLM for chat + intent parsing + follow-ups)
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-opus-4-7"
+
+    # OpenAI (embeddings only — Anthropic doesn't offer an embedding API)
     openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
+    openai_model: str = "gpt-4o-mini"  # retained for legacy /api/chat/ fallback path
     openai_embedding_model: str = "text-embedding-3-small"
 
     # Scraping
@@ -37,11 +44,19 @@ class Settings(BaseSettings):
 
     # Data collection
     data_start_date: str = "2020-01-01"
-    data_end_date: str = "2025-12-31"
+    data_end_date: str = "2026-12-31"
 
     # Processing
     batch_size: int = 50
     max_concurrent_requests: int = 10
+
+    # Reddit (optional — set to enable Reddit scraping)
+    reddit_client_id: str = ""
+    reddit_client_secret: str = ""
+    reddit_user_agent: str = "bsa-voc-scraper/0.1 by parklands-internal-research"
+
+    # SerpAPI (optional — set to enable Google scraping)
+    serpapi_key: str = ""
 
     @property
     def sqlite_url(self) -> str:

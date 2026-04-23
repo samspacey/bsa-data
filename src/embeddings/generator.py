@@ -30,12 +30,20 @@ class EmbeddingGenerator:
         self.model = model
         self.max_concurrent = max_concurrent
         self._semaphore: Optional[asyncio.Semaphore] = None
+        self._semaphore_loop: Optional[asyncio.AbstractEventLoop] = None
         self._total_tokens = 0
 
     def _get_semaphore(self) -> asyncio.Semaphore:
         """Get or create semaphore for current event loop."""
-        if self._semaphore is None:
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+
+        # Create new semaphore if none exists or if event loop changed
+        if self._semaphore is None or self._semaphore_loop != current_loop:
             self._semaphore = asyncio.Semaphore(self.max_concurrent)
+            self._semaphore_loop = current_loop
         return self._semaphore
 
     @retry(

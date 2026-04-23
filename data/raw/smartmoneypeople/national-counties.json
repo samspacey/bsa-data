@@ -1,0 +1,92 @@
+{
+  "society_id": "national-counties",
+  "source_id": "smartmoneypeople",
+  "scraped_at": "2025-11-28T14:57:52.728056",
+  "review_count": 7,
+  "reviews": [
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_national-counties_2024-05-24T07:22:37+01:00_3397",
+      "building_society_id": "national-counties",
+      "review_date": "2024-05-24",
+      "rating": 5,
+      "title": null,
+      "body": "Great customer service. They are attentive and tailor their offer to your individual needs.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_national-counties_2024-03-15T10:50:40+00:00_5716",
+      "building_society_id": "national-counties",
+      "review_date": "2024-03-15",
+      "rating": 3,
+      "title": null,
+      "body": "Have  not  had  any  problems  as yet, cannot  complain  about anything",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_national-counties_2023-07-15T11:19:53+01:00_1919",
+      "building_society_id": "national-counties",
+      "review_date": "2023-07-15",
+      "rating": 5,
+      "title": null,
+      "body": "Excellent tans services and good advice from staff at all times also easy to contact",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_national-counties_2023-04-11T13:25:58+01:00_5366",
+      "building_society_id": "national-counties",
+      "review_date": "2023-04-11",
+      "rating": 5,
+      "title": null,
+      "body": "Great savings account very helpful staff easy to contact about any problems",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_national-counties_2023-03-27T14:06:59+01:00_4380",
+      "building_society_id": "national-counties",
+      "review_date": "2023-03-27",
+      "rating": 4,
+      "title": null,
+      "body": "I  like  the  fact  that  they offer   different  products",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_national-counties_2023-03-16T18:45:27+00:00_2787",
+      "building_society_id": "national-counties",
+      "review_date": "2023-03-16",
+      "rating": 4,
+      "title": null,
+      "body": "Easy to contact on High Street and online banking",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_national-counties_2023-02-17T22:50:50+00:00_268",
+      "building_society_id": "national-counties",
+      "review_date": "2023-02-17",
+      "rating": 4,
+      "title": null,
+      "body": "The experience I received it’s great",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

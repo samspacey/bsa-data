@@ -1,9 +1,45 @@
 {
   "society_id": "yorkshire",
   "source_id": "trustpilot",
-  "scraped_at": "2025-11-28T10:29:43.336929",
-  "review_count": 79,
+  "scraped_at": "2025-11-28T14:47:11.794974",
+  "review_count": 78,
   "reviews": [
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "692996ff4563c1b084f5c457",
+      "building_society_id": "yorkshire",
+      "review_date": "2025-11-28",
+      "rating": 5,
+      "title": "Amazing staffs",
+      "body": "Amazing staffsVery professional staffs that worked with me and helpful too.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "69299081d85a85a1c3eeefb6",
+      "building_society_id": "yorkshire",
+      "review_date": "2025-11-28",
+      "rating": 5,
+      "title": "So helpful",
+      "body": "So very helpful what they explained helping me set up my accounts so very pleasant as well",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "trustpilot",
+      "source_review_id": "69298fd375ac5902dec65994",
+      "building_society_id": "yorkshire",
+      "review_date": "2025-11-28",
+      "rating": 5,
+      "title": "The importance of branches!",
+      "body": "Friendly, helpful staff.No waiting time.Accommodated my needs.Definitely proved that we still need over-the-counter face-to-face service. Going online doesn't always work!",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
     {
       "source_id": "trustpilot",
       "source_review_id": "69289862ee344b4acfbd71a1",
@@ -900,54 +936,6 @@
       "rating": 5,
       "title": "The online app made it easy to do the…",
       "body": "The online app made it easy to do the things I wanted to do.",
-      "reviewer_name": null,
-      "location": null,
-      "app_version": null
-    },
-    {
-      "source_id": "trustpilot",
-      "source_review_id": "6912f99963921b152781a1ad",
-      "building_society_id": "yorkshire",
-      "review_date": "2025-11-11",
-      "rating": 5,
-      "title": "Setup a new account online with ease",
-      "body": "Setup a new account online with ease. Very simple process and then received phone call from local branch welcoming me and explaining things to me.Very happy.Good rates as well",
-      "reviewer_name": null,
-      "location": null,
-      "app_version": null
-    },
-    {
-      "source_id": "trustpilot",
-      "source_review_id": "691252ab5de76b25634a8cb3",
-      "building_society_id": "yorkshire",
-      "review_date": "2025-11-10",
-      "rating": 5,
-      "title": "Trusted organisation",
-      "body": "Nice, easy process to set up an account with an excellent organisation.",
-      "reviewer_name": null,
-      "location": null,
-      "app_version": null
-    },
-    {
-      "source_id": "trustpilot",
-      "source_review_id": "691250a8e5ca2f9c2d877f70",
-      "building_society_id": "yorkshire",
-      "review_date": "2025-11-10",
-      "rating": 4,
-      "title": "Staff were all very welcoming",
-      "body": "Reply from Yorkshire Building Society",
-      "reviewer_name": null,
-      "location": null,
-      "app_version": null
-    },
-    {
-      "source_id": "trustpilot",
-      "source_review_id": "691237125cf6fdd81ab43236",
-      "building_society_id": "yorkshire",
-      "review_date": "2025-11-10",
-      "rating": 5,
-      "title": "A very good experience",
-      "body": "A very helpful, friendly and informative staff member contacted me. Gave me very useful information about my account and the society, also what to do if I needed any help. I really recommend this building society, very good rates and easy to open accounts.",
       "reviewer_name": null,
       "location": null,
       "app_version": null

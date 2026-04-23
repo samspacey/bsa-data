@@ -120,6 +120,7 @@ class PublicReview(Base):
     )  # mortgage, savings, current_account, ISA, other, unknown
     location_text: Mapped[Optional[str]] = mapped_column(String(200))
     app_version: Mapped[Optional[str]] = mapped_column(String(50))
+    source_url: Mapped[Optional[str]] = mapped_column(String(1000))  # Link back to original review
 
     # Flags
     is_flagged_for_exclusion: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -240,6 +241,55 @@ class SummaryMetric(Base):
 
     # Relationships
     society: Mapped["BuildingSociety"] = relationship(back_populates="metrics")
+
+
+class ContentMention(Base):
+    """Non-review mentions of building societies (forum posts, editorial ratings, news).
+
+    Stored alongside ``public_review`` but deliberately NOT aggregated into
+    ``summary_metric`` so editorial or forum content does not distort the
+    customer-review averages. Each row is linked to a society via
+    ``building_society_id`` and carries its own rating scale where applicable.
+    """
+
+    __tablename__ = "content_mention"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("data_source.id"), nullable=False
+    )
+    source_mention_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    building_society_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("building_society.id"), nullable=False
+    )
+
+    mention_type: Mapped[str] = mapped_column(
+        String(30), nullable=False
+    )  # forum_post, editorial_rating, news_article
+
+    mention_date: Mapped[date] = mapped_column(Date, nullable=False)
+    title_text: Mapped[Optional[str]] = mapped_column(Text)
+    body_text_raw: Mapped[str] = mapped_column(Text, nullable=False)
+    body_text_clean: Mapped[Optional[str]] = mapped_column(Text)
+
+    author_handle: Mapped[Optional[str]] = mapped_column(String(200))
+    source_url: Mapped[Optional[str]] = mapped_column(String(1000))
+
+    # Optional rating with its native scale
+    rating_value: Mapped[Optional[float]] = mapped_column(Float)
+    rating_scale_max: Mapped[Optional[float]] = mapped_column(Float)
+
+    # Platform-specific extras stored as JSON (subreddit, upvotes, publication, etc.)
+    extra_metadata: Mapped[Optional[str]] = mapped_column(JSON)
+
+    # Flags
+    is_flagged_for_exclusion: Mapped[bool] = mapped_column(Boolean, default=False)
+    exclusion_reason: Mapped[Optional[str]] = mapped_column(String(200))
+
+    # Timestamps
+    scraped_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    cleaned_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    enriched_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
 
 class EmbeddingDocument(Base):

@@ -13,21 +13,32 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.config.settings import settings
 from src.config.societies import get_all_societies
 from src.data.database import get_session, init_database, populate_initial_data, get_engine
-from src.data.models import PublicReview
-from src.data.schemas import RawReview
+from src.data.models import ContentMention, PublicReview
+from src.data.schemas import RawMention, RawReview
 from src.processing.cleaner import ReviewCleaner
 
 
+# Sources that emit RawReview (aggregated into summary_metric)
+REVIEW_SOURCES = [
+    "trustpilot",
+    "app_store",
+    "play_store",
+    "smartmoneypeople",
+    "feefo",
+    "google",
+]
+
+# Sources that emit RawMention (stored but NOT aggregated into summary_metric)
+MENTION_SOURCES = [
+    "reddit",
+    "mse",
+    "fairer_finance",
+    "which",
+]
+
+
 def load_raw_reviews(source_dir: Path, source_id: str) -> list[RawReview]:
-    """Load raw reviews from JSON files.
-
-    Args:
-        source_dir: Directory containing raw review files
-        source_id: Source identifier (trustpilot, app_store, play_store)
-
-    Returns:
-        List of raw reviews
-    """
+    """Load raw reviews from JSON files."""
     source_path = source_dir / source_id
     if not source_path.exists():
         print(f"  No data directory for {source_id}")
@@ -40,7 +51,6 @@ def load_raw_reviews(source_dir: Path, source_id: str) -> list[RawReview]:
 
         for review_data in data.get("reviews", []):
             try:
-                # Convert date string back to date object
                 if isinstance(review_data.get("review_date"), str):
                     review_data["review_date"] = datetime.fromisoformat(
                         review_data["review_date"]
@@ -51,6 +61,30 @@ def load_raw_reviews(source_dir: Path, source_id: str) -> list[RawReview]:
                 continue
 
     return reviews
+
+
+def load_raw_mentions(source_dir: Path, source_id: str) -> list[RawMention]:
+    """Load raw mentions from JSON files (reddit, mse, fairer_finance, which)."""
+    source_path = source_dir / source_id
+    if not source_path.exists():
+        print(f"  No data directory for {source_id}")
+        return []
+
+    mentions = []
+    for json_file in source_path.glob("*.json"):
+        with open(json_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        for item in data.get("reviews", []):  # base scraper saves under 'reviews' key
+            try:
+                if isinstance(item.get("mention_date"), str):
+                    item["mention_date"] = datetime.fromisoformat(item["mention_date"]).date()
+                mentions.append(RawMention(**item))
+            except Exception as e:
+                print(f"  Error parsing mention: {e}")
+                continue
+
+    return mentions
 
 
 def main():
@@ -64,7 +98,7 @@ def main():
     parser.add_argument(
         "--sources",
         nargs="+",
-        choices=["trustpilot", "app_store", "play_store", "all"],
+        choices=REVIEW_SOURCES + MENTION_SOURCES + ["all"],
         default=["all"],
         help="Sources to process (default: all)",
     )
@@ -86,20 +120,22 @@ def main():
     cleaner = ReviewCleaner()
 
     # Determine sources to process
-    sources = (
-        ["trustpilot", "app_store", "play_store"]
-        if "all" in args.sources
-        else args.sources
-    )
+    if "all" in args.sources:
+        review_sources = REVIEW_SOURCES
+        mention_sources = MENTION_SOURCES
+    else:
+        review_sources = [s for s in args.sources if s in REVIEW_SOURCES]
+        mention_sources = [s for s in args.sources if s in MENTION_SOURCES]
 
     total_raw = 0
     total_cleaned = 0
     total_excluded = 0
+    total_mentions = 0
 
-    for source_id in sources:
-        print(f"\nProcessing {source_id}...")
+    # --- Reviews flow ---
+    for source_id in review_sources:
+        print(f"\nProcessing {source_id} (reviews)...")
 
-        # Load raw reviews
         raw_reviews = load_raw_reviews(args.input_dir, source_id)
         print(f"  Loaded {len(raw_reviews)} raw reviews")
         total_raw += len(raw_reviews)
@@ -107,10 +143,7 @@ def main():
         if not raw_reviews:
             continue
 
-        # Clean reviews
         cleaned_reviews = cleaner.clean_reviews(raw_reviews)
-
-        # Separate valid and excluded
         valid_reviews = [r for r in cleaned_reviews if not r.is_flagged_for_exclusion]
         excluded_reviews = [r for r in cleaned_reviews if r.is_flagged_for_exclusion]
 
@@ -120,11 +153,13 @@ def main():
         total_cleaned += len(valid_reviews)
         total_excluded += len(excluded_reviews)
 
-        # Save to database
+        # Build a lookup from raw source_review_id -> source_url so cleaned reviews
+        # can carry the link through to the DB (cleaner doesn't currently propagate it).
+        url_lookup = {r.source_review_id: r.source_url for r in raw_reviews if r.source_url}
+
         print("  Saving to database...")
         with get_session(engine) as session:
             for cleaned in cleaned_reviews:
-                # Check for duplicates
                 existing = (
                     session.query(PublicReview)
                     .filter_by(
@@ -152,6 +187,7 @@ def main():
                     product=cleaned.product.value if cleaned.product else None,
                     location_text=cleaned.location_text,
                     app_version=cleaned.app_version,
+                    source_url=url_lookup.get(cleaned.source_review_id),
                     is_flagged_for_exclusion=cleaned.is_flagged_for_exclusion,
                     exclusion_reason=cleaned.exclusion_reason,
                     cleaned_at=datetime.now(),
@@ -160,12 +196,59 @@ def main():
 
             session.commit()
 
+    # --- Mentions flow ---
+    for source_id in mention_sources:
+        print(f"\nProcessing {source_id} (mentions)...")
+
+        raw_mentions = load_raw_mentions(args.input_dir, source_id)
+        print(f"  Loaded {len(raw_mentions)} mentions")
+        total_mentions += len(raw_mentions)
+
+        if not raw_mentions:
+            continue
+
+        with get_session(engine) as session:
+            for m in raw_mentions:
+                existing = (
+                    session.query(ContentMention)
+                    .filter_by(source_id=m.source_id, source_mention_id=m.source_mention_id)
+                    .first()
+                )
+                if existing:
+                    continue
+
+                # Minimal cleaning: trim & drop very short bodies. PII redaction
+                # is reused from ReviewCleaner for consistency where it applies.
+                body_clean = cleaner.normalize_text(cleaner.remove_pii(m.body or ""))
+
+                session.add(
+                    ContentMention(
+                        source_id=m.source_id,
+                        source_mention_id=m.source_mention_id,
+                        building_society_id=m.building_society_id,
+                        mention_type=m.mention_type.value if hasattr(m.mention_type, "value") else str(m.mention_type),
+                        mention_date=m.mention_date,
+                        title_text=m.title,
+                        body_text_raw=m.body,
+                        body_text_clean=body_clean,
+                        author_handle=m.author,
+                        source_url=m.source_url,
+                        rating_value=m.rating_value,
+                        rating_scale_max=m.rating_scale_max,
+                        extra_metadata=json.dumps(m.extra) if m.extra else None,
+                        cleaned_at=datetime.now(),
+                    )
+                )
+
+            session.commit()
+
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
     print(f"Total raw reviews: {total_raw}")
     print(f"Total valid reviews: {total_cleaned}")
-    print(f"Total excluded: {total_excluded}")
+    print(f"Total excluded reviews: {total_excluded}")
+    print(f"Total mentions stored: {total_mentions}")
     print(f"Database: {settings.sqlite_db_path}")
 
 

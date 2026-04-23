@@ -1,5 +1,12 @@
-"""Trustpilot scraper for building society reviews."""
+"""Trustpilot scraper for building society reviews.
 
+Trustpilot embeds the full page payload in a ``__NEXT_DATA__`` script tag. We
+prefer that structured JSON (much more reliable than HTML selectors, which
+Trustpilot changes frequently) and fall back to the HTML parser if Next.js
+payloads ever disappear.
+"""
+
+import json
 import re
 from datetime import date, datetime
 from typing import Optional
@@ -91,8 +98,96 @@ class TrustpilotScraper(BaseScraper):
 
         return 3
 
+    def _extract_next_data_reviews(self, html: str, society_id: str) -> list[RawReview]:
+        """Extract reviews from the embedded __NEXT_DATA__ JSON payload.
+
+        Trustpilot's Next.js app embeds the full reviews array in a
+        ``<script id="__NEXT_DATA__" type="application/json">`` element. This
+        is the most stable source of structured review data.
+        """
+        match = re.search(
+            r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',
+            html,
+            re.DOTALL,
+        )
+        if not match:
+            return []
+
+        try:
+            data = json.loads(match.group(1))
+        except json.JSONDecodeError:
+            return []
+
+        # Walk a few likely paths — Next.js page-prop shape shifts over time.
+        candidates = [
+            data.get("props", {}).get("pageProps", {}).get("reviews"),
+            data.get("props", {}).get("pageProps", {}).get("businessUnit", {}).get("reviews"),
+        ]
+        review_list = next((c for c in candidates if isinstance(c, list)), None)
+        if review_list is None:
+            return []
+
+        reviews: list[RawReview] = []
+        for item in review_list:
+            if not isinstance(item, dict):
+                continue
+            try:
+                review_id = item.get("id") or item.get("reviewId")
+                if not review_id:
+                    continue
+
+                rating = item.get("rating") or (item.get("stars") if isinstance(item.get("stars"), int) else None)
+                if rating is None:
+                    continue
+                rating = max(1, min(5, int(rating)))
+
+                text = item.get("text") or item.get("body") or ""
+                if not text or len(text) < 10:
+                    continue
+
+                title = item.get("title")
+                consumer = item.get("consumer") or {}
+                location = consumer.get("countryCode") or consumer.get("displayLocation")
+
+                date_raw = (
+                    item.get("dates", {}).get("experiencedDate")
+                    or item.get("dates", {}).get("publishedDate")
+                    or item.get("createdDateTime")
+                    or item.get("experiencedAt")
+                    or item.get("publishedAt")
+                )
+                review_date = self._parse_date(date_raw) if date_raw else None
+                if not review_date:
+                    continue
+
+                reviews.append(
+                    RawReview(
+                        source_id=self.source_id,
+                        source_review_id=str(review_id),
+                        building_society_id=society_id,
+                        review_date=review_date,
+                        rating=rating,
+                        title=title,
+                        body=text,
+                        location=location,
+                        source_url=f"{self.BASE_URL}/reviews/{review_id}",
+                    )
+                )
+            except Exception as e:  # noqa: BLE001
+                print(f"    Error parsing NEXT_DATA review: {e}")
+                continue
+
+        return reviews
+
     def _extract_reviews_from_page(self, html: str, society_id: str) -> list[RawReview]:
-        """Parse reviews from a Trustpilot page HTML."""
+        """Parse reviews from a Trustpilot page.
+
+        Prefers the embedded ``__NEXT_DATA__`` JSON; falls back to HTML parsing.
+        """
+        next_data_reviews = self._extract_next_data_reviews(html, society_id)
+        if next_data_reviews:
+            return next_data_reviews
+
         soup = BeautifulSoup(html, "lxml")
         reviews = []
 
@@ -240,41 +335,58 @@ class TrustpilotScraper(BaseScraper):
                 return []
 
         all_reviews = []
-        page = 1
-        max_pages = 100  # Safety limit
+        seen_ids: set[str] = set()
+        max_pages = 500  # Raised from 100 — Nationwide etc. have many pages
+        consecutive_empty = 0
+        empty_page_tolerance = 3  # A single empty page might be transient
 
         # Get first page to determine total pages
         first_url = self._get_review_page_url(domain, 1)
         try:
             response = self._fetch_url(first_url)
             total_pages = min(self._get_total_pages(response.text), max_pages)
-            print(f"  Found {total_pages} pages of reviews")
+            print(f"  Found ~{total_pages} pages of reviews")
 
             # Parse first page
             reviews = self._extract_reviews_from_page(response.text, society.id)
-            all_reviews.extend(reviews)
+            for r in reviews:
+                if r.source_review_id not in seen_ids:
+                    all_reviews.append(r)
+                    seen_ids.add(r.source_review_id)
 
         except Exception as e:
             print(f"  Error fetching first page: {e}")
             return []
 
-        # Fetch remaining pages
-        for page in range(2, total_pages + 1):
+        # Fetch remaining pages — iterate to the safety limit, not the page
+        # count we parsed (which is often an underestimate).
+        upper_bound = max(total_pages, max_pages)
+        for page in range(2, upper_bound + 1):
             self._rate_limit()
             url = self._get_review_page_url(domain, page)
             try:
                 response = self._fetch_url(url)
                 reviews = self._extract_reviews_from_page(response.text, society.id)
 
-                if not reviews:
-                    print(f"  No reviews found on page {page}, stopping")
-                    break
+                new_count = 0
+                for r in reviews:
+                    if r.source_review_id not in seen_ids:
+                        all_reviews.append(r)
+                        seen_ids.add(r.source_review_id)
+                        new_count += 1
 
-                all_reviews.extend(reviews)
-                print(f"  Page {page}/{total_pages}: {len(reviews)} reviews")
+                if new_count == 0:
+                    consecutive_empty += 1
+                    print(f"  Page {page}: 0 new reviews ({consecutive_empty}/{empty_page_tolerance} empty)")
+                    if consecutive_empty >= empty_page_tolerance:
+                        print(f"  Stopping after {consecutive_empty} consecutive empty pages")
+                        break
+                else:
+                    consecutive_empty = 0
+                    print(f"  Page {page}: {new_count} new reviews (total {len(all_reviews)})")
 
                 # Check date bounds
-                if start_date:
+                if start_date and reviews:
                     oldest_on_page = min(r.review_date for r in reviews)
                     if oldest_on_page < start_date:
                         print(f"  Reached start date boundary")
@@ -282,6 +394,10 @@ class TrustpilotScraper(BaseScraper):
 
             except Exception as e:
                 print(f"  Error fetching page {page}: {e}")
+                consecutive_empty += 1
+                if consecutive_empty >= empty_page_tolerance:
+                    print(f"  Stopping after {consecutive_empty} consecutive errors/empty pages")
+                    break
                 continue
 
         # Filter by date if specified

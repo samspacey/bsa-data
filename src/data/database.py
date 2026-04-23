@@ -54,15 +54,17 @@ def init_database(engine=None) -> None:
 
 
 def populate_initial_data(engine=None) -> None:
-    """Populate the database with initial building societies and data sources."""
-    with get_session(engine) as session:
-        # Check if data already exists
-        existing_societies = session.query(BuildingSociety).count()
-        if existing_societies > 0:
-            print(f"Database already contains {existing_societies} societies. Skipping population.")
-            return
+    """Populate the database with initial building societies and data sources.
 
-        # Add data sources
+    This function is idempotent - it will add any missing societies or data sources
+    without duplicating existing ones.
+    """
+    with get_session(engine) as session:
+        # Get existing society IDs
+        existing_society_ids = {s.id for s in session.query(BuildingSociety.id).all()}
+        existing_source_ids = {s.id for s in session.query(DataSource.id).all()}
+
+        # Add data sources if they don't exist
         data_sources = [
             DataSource(
                 id="trustpilot",
@@ -85,51 +87,112 @@ def populate_initial_data(engine=None) -> None:
                 url_pattern="https://play.google.com/store/apps/details?id={package}",
                 terms_version_note="Reviews collected via Google Play Scraper library",
             ),
+            DataSource(
+                id="smartmoneypeople",
+                name="Smart Money People",
+                source_type="review_platform",
+                url_pattern="https://smartmoneypeople.com/provider/{slug}",
+                terms_version_note="Reviews scraped respecting robots.txt and rate limits",
+            ),
+            DataSource(
+                id="feefo",
+                name="Feefo",
+                source_type="review_platform",
+                url_pattern="https://www.feefo.com/en-GB/reviews/{slug}",
+                terms_version_note="Reviews scraped respecting robots.txt and rate limits",
+            ),
+            DataSource(
+                id="reddit",
+                name="Reddit",
+                source_type="forum",
+                url_pattern="https://reddit.com/r/{subreddit}/comments/{id}",
+                terms_version_note="Fetched via PRAW (Reddit's public API) under API Terms of Use; scoped to last 12 months",
+            ),
+            DataSource(
+                id="mse",
+                name="MoneySavingExpert Forum",
+                source_type="forum",
+                url_pattern="https://forums.moneysavingexpert.com/discussion/{id}",
+                terms_version_note="Forum content scraped for internal research use; respecting robots.txt and rate limits",
+            ),
+            DataSource(
+                id="google",
+                name="Google Reviews",
+                source_type="maps",
+                url_pattern="https://www.google.com/maps/place/?q=place_id:{place_id}",
+                terms_version_note="Fetched via SerpAPI — internal research use only",
+            ),
+            DataSource(
+                id="fairer_finance",
+                name="Fairer Finance",
+                source_type="editorial",
+                url_pattern="https://www.fairerfinance.com/ratings/customer-experience-ratings/{slug}",
+                terms_version_note="Editorial star ratings from Fairer Finance (public pages)",
+            ),
+            DataSource(
+                id="which",
+                name="Which? Money",
+                source_type="editorial",
+                url_pattern="https://www.which.co.uk/reviews/current-accounts/{slug}",
+                terms_version_note="Manually curated Which? top-line ratings from public summary pages",
+            ),
         ]
 
+        sources_added = 0
         for source in data_sources:
-            session.add(source)
+            if source.id not in existing_source_ids:
+                session.add(source)
+                sources_added += 1
 
-        # Add building societies from config
+        # Add building societies from config (only new ones)
+        societies_added = 0
         for society_config in BUILDING_SOCIETIES:
-            society = BuildingSociety(
-                id=society_config.id,
-                canonical_name=society_config.canonical_name,
-                bsa_name=society_config.bsa_name,
-                size_bucket=society_config.size_bucket,
-                website_domain=society_config.website_domain,
-                trustpilot_url=society_config.trustpilot_url,
-                app_store_id=society_config.app_store_id,
-                play_store_id=society_config.play_store_id,
-                notes=society_config.notes or None,
-            )
-            session.add(society)
-
-            # Add aliases
-            # First, add the canonical name as an alias
-            session.add(
-                BuildingSocietyAlias(
-                    building_society_id=society_config.id,
-                    alias_text=society_config.canonical_name,
-                    alias_type="canonical",
-                    confidence_score=1.0,
+            if society_config.id not in existing_society_ids:
+                society = BuildingSociety(
+                    id=society_config.id,
+                    canonical_name=society_config.canonical_name,
+                    bsa_name=society_config.bsa_name,
+                    size_bucket=society_config.size_bucket,
+                    website_domain=society_config.website_domain,
+                    trustpilot_url=society_config.trustpilot_url,
+                    app_store_id=society_config.app_store_id,
+                    play_store_id=society_config.play_store_id,
+                    notes=society_config.notes or None,
                 )
-            )
+                session.add(society)
 
-            # Add configured aliases
-            for alias in society_config.aliases:
-                alias_type = "acronym" if alias.isupper() else "short_name"
+                # Add aliases
+                # First, add the canonical name as an alias
                 session.add(
                     BuildingSocietyAlias(
                         building_society_id=society_config.id,
-                        alias_text=alias,
-                        alias_type=alias_type,
+                        alias_text=society_config.canonical_name,
+                        alias_type="canonical",
                         confidence_score=1.0,
                     )
                 )
 
+                # Add configured aliases
+                for alias in society_config.aliases:
+                    alias_type = "acronym" if alias.isupper() else "short_name"
+                    session.add(
+                        BuildingSocietyAlias(
+                            building_society_id=society_config.id,
+                            alias_text=alias,
+                            alias_type=alias_type,
+                            confidence_score=1.0,
+                        )
+                    )
+                societies_added += 1
+
         session.commit()
-        print(f"Populated database with {len(BUILDING_SOCIETIES)} building societies and 3 data sources.")
+
+        total_societies = len(existing_society_ids) + societies_added
+        if societies_added > 0 or sources_added > 0:
+            print(f"Added {societies_added} new societies, {sources_added} new data sources.")
+            print(f"Database now contains {total_societies} societies.")
+        else:
+            print(f"Database already up to date with {total_societies} societies.")
 
 
 def reset_database(engine=None) -> None:

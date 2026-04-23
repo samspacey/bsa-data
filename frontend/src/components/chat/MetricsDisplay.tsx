@@ -4,6 +4,21 @@ interface MetricsDisplayProps {
   metrics: MetricSummary[];
 }
 
+function formatTimePeriod(start: string, end: string): string {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // Check if it's a monthly bucket (same month/year)
+  if (startDate.getMonth() === (endDate.getMonth() === 0 ? 11 : endDate.getMonth() - 1) ||
+      (endDate.getDate() === 1 && startDate.getDate() === 1)) {
+    return `${months[startDate.getMonth()]} ${startDate.getFullYear()}`;
+  }
+
+  // For longer periods, show range
+  return `${months[startDate.getMonth()]} ${startDate.getFullYear()} - ${months[endDate.getMonth()]} ${endDate.getFullYear()}`;
+}
+
 function MetricCard({ metric }: { metric: MetricSummary }) {
   const formatPercentage = (value: number) => `${(value * 100).toFixed(0)}%`;
   const formatRating = (value: number) => value.toFixed(2);
@@ -14,6 +29,8 @@ function MetricCard({ metric }: { metric: MetricSummary }) {
     ? "text-green-600"
     : "text-red-600";
 
+  const timePeriod = formatTimePeriod(metric.time_bucket_start, metric.time_bucket_end);
+
   return (
     <div className="bg-blue-50 rounded-lg p-3">
       <div className="flex items-start justify-between">
@@ -22,7 +39,7 @@ function MetricCard({ metric }: { metric: MetricSummary }) {
             {metric.building_society_name}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            {metric.aspect === "overall" ? "Overall" : metric.aspect}
+            {timePeriod} · {metric.aspect === "overall" ? "Overall" : metric.aspect}
           </p>
         </div>
         <p className="text-xs text-gray-400">

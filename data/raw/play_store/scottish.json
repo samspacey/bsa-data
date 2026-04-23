@@ -1,0 +1,68 @@
+{
+  "society_id": "scottish",
+  "source_id": "play_store",
+  "scraped_at": "2025-11-28T14:55:20.793877",
+  "review_count": 5,
+  "reviews": [
+    {
+      "source_id": "play_store",
+      "source_review_id": "abcf1d1c-6116-4628-8e78-594443f9460d",
+      "building_society_id": "scottish",
+      "review_date": "2025-08-12",
+      "rating": 1,
+      "title": null,
+      "body": "Should be able to manage savings accounts etc by app these days",
+      "reviewer_name": "James Evans",
+      "location": null,
+      "app_version": "102.1.61"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "31a10b91-cb22-4e93-b6d1-0e003a69feb3",
+      "building_society_id": "scottish",
+      "review_date": "2024-10-08",
+      "rating": 1,
+      "title": null,
+      "body": "Disappointing that it's not possible to view or manage my account on the app. In the 21st century the society could definitely attract more members if it provided an app-based account management facility.",
+      "reviewer_name": "David Bain",
+      "location": null,
+      "app_version": "102.1.61"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "063bd81b-fcca-4f4c-a815-97d65019483a",
+      "building_society_id": "scottish",
+      "review_date": "2024-04-24",
+      "rating": 2,
+      "title": null,
+      "body": "No account details shown, it's only for messages & documents",
+      "reviewer_name": "Alan Proctor",
+      "location": null,
+      "app_version": "2.1.56"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "3cceb520-78f3-4f2d-be8f-e3633f8fa419",
+      "building_society_id": "scottish",
+      "review_date": "2023-06-21",
+      "rating": 5,
+      "title": null,
+      "body": "Very clear instructions",
+      "reviewer_name": "Beatrice Brunton",
+      "location": null,
+      "app_version": "2.1.40"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "96bc7d99-0077-423d-b995-e242f29ecd8a",
+      "building_society_id": "scottish",
+      "review_date": "2022-12-15",
+      "rating": 1,
+      "title": null,
+      "body": "Another pointless, faceless and intrusive step away from real customer contact",
+      "reviewer_name": "Roy Baker",
+      "location": null,
+      "app_version": "2.1.37"
+    }
+  ]
+}

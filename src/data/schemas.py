@@ -68,6 +68,40 @@ class RawReview(BaseModel):
     reviewer_name: Optional[str] = None  # Will be redacted
     location: Optional[str] = None
     app_version: Optional[str] = None
+    source_url: Optional[str] = None  # Link to the original review, used for citations
+
+
+class MentionType(str, Enum):
+    """Kinds of non-review content about a society."""
+
+    FORUM_POST = "forum_post"
+    EDITORIAL_RATING = "editorial_rating"
+    NEWS_ARTICLE = "news_article"
+
+
+class RawMention(BaseModel):
+    """Schema for non-review content (forum posts, editorial ratings, news).
+
+    Kept separate from ``RawReview`` so aggregations like average rating or
+    avg sentiment score do not mix one-off editorial verdicts with individual
+    customer voices. Editorial ratings often have a 10-point or 5-star scale
+    that is not comparable to a customer review score.
+    """
+
+    source_id: str
+    source_mention_id: str
+    building_society_id: str
+    mention_type: MentionType
+    mention_date: date
+    title: Optional[str] = None
+    body: str
+    author: Optional[str] = None  # Redditor handle, journalist, etc.
+    source_url: Optional[str] = None
+    # Optional rating with its own scale — editorial sources often use 0-5 or 0-10
+    rating_value: Optional[float] = None
+    rating_scale_max: Optional[float] = None  # 5.0, 10.0, 100.0 etc.
+    # Platform-specific extras (subreddit, upvotes, publication, verdict)
+    extra: dict = Field(default_factory=dict)
 
 
 # Cleaned review schema
@@ -181,6 +215,15 @@ class ReviewSnippet(BaseModel):
     aspects: list[str] = []
     topics: list[str] = []
     snippet_text: str
+    source_url: Optional[str] = None  # Link back to the original review, for citation clicks
+
+
+class SourceCount(BaseModel):
+    """Per-source review/mention count for the coverage visualisation."""
+
+    source_id: str
+    source_name: str
+    count: int
 
 
 class DataCoverage(BaseModel):
@@ -190,6 +233,11 @@ class DataCoverage(BaseModel):
     sources: list[str]
     total_reviews_considered: int
     per_society_review_counts: list[dict]
+    # Per-source breakdown used for the source-coverage chart on the frontend
+    per_source_counts: list[SourceCount] = []
+    # Whether any ContentMention rows (Reddit, MSE, editorial) contributed
+    includes_mentions: bool = False
+    mentions_considered: int = 0
 
 
 class QueryIntent(BaseModel):
@@ -207,11 +255,30 @@ class QueryIntent(BaseModel):
     detail_level: str = "standard"
 
 
+class PersonaSpec(BaseModel):
+    """Persona details for roleplay chat (kiosk flow)."""
+
+    id: str
+    name: str
+    first_name: str
+    age: str
+    detail: str
+    concerns: list[str] = []
+
+
 class ChatRequest(BaseModel):
-    """Chat API request."""
+    """Chat API request.
+
+    In the kiosk flow, the UI pins the conversation to a specific society +
+    persona — the backend scopes retrieval and prompts the model to roleplay.
+    ``society_id`` and ``persona`` are both optional; without them the API
+    behaves as an analyst-style Q&A.
+    """
 
     message: str
     session_id: Optional[str] = None
+    society_id: Optional[str] = None
+    persona: Optional[PersonaSpec] = None
 
 
 class ChatResponse(BaseModel):
@@ -219,6 +286,18 @@ class ChatResponse(BaseModel):
 
     session_id: str
     answer: str
+    metrics: list[MetricSummary] = []
+    evidence_snippets: list[ReviewSnippet] = []
+    data_coverage: Optional[DataCoverage] = None
+    assumptions: list[str] = []
+    limitations: list[str] = []
+    followups: list[str] = []  # Suggested next questions
+
+
+class ChatStreamMetadata(BaseModel):
+    """Payload of the initial ``metadata`` SSE event for the streaming endpoint."""
+
+    session_id: str
     metrics: list[MetricSummary] = []
     evidence_snippets: list[ReviewSnippet] = []
     data_coverage: Optional[DataCoverage] = None

@@ -1,10 +1,12 @@
-"""LLM-based query parsing for natural language questions."""
+"""Natural-language query parsing using OpenAI with structured outputs."""
 
 import json
 from datetime import date
+from enum import Enum
 from typing import Optional
 
 from openai import OpenAI
+from pydantic import BaseModel, Field
 from rapidfuzz import fuzz, process
 
 from src.config.settings import settings
@@ -12,132 +14,72 @@ from src.config.societies import ALIAS_TO_SOCIETY_ID, SOCIETY_BY_ID, get_all_soc
 from src.data.schemas import QueryIntent
 
 
+class TimeframeType(str, Enum):
+    ALL_AVAILABLE = "all_available"
+    LAST_12_MONTHS = "last_12_months"
+    LAST_24_MONTHS = "last_24_months"
+    CALENDAR_YEAR = "calendar_year"
+    SINCE_COVID = "since_covid"
+    RECENT_GENERIC = "recent_generic"
+
+
+class FocusArea(str, Enum):
+    OVERALL = "overall"
+    DIGITAL_BANKING = "digital_banking"
+    MOBILE_APP = "mobile_app"
+    BRANCHES = "branches"
+    MORTGAGES = "mortgages"
+    SAVINGS = "savings"
+    CURRENT_ACCOUNTS = "current_accounts"
+    CUSTOMER_SERVICE = "customer_service"
+    COMPLAINTS_HANDLING = "complaints_handling"
+    FEES_AND_RATES = "fees_and_rates"
+
+
+class QuestionType(str, Enum):
+    OVERALL_SENTIMENT = "overall_sentiment"
+    COMPARISON = "comparison"
+    TREND_OVER_TIME = "trend_over_time"
+    DRIVERS_OF_SENTIMENT = "drivers_of_sentiment"
+    EXAMPLES_ONLY = "examples_only"
+    VOLUME_AND_MIX = "volume_and_mix"
+
+
+class SentimentFocus(str, Enum):
+    ALL = "all"
+    MOSTLY_NEGATIVE = "mostly_negative"
+    MOSTLY_POSITIVE = "mostly_positive"
+
+
+class DetailLevel(str, Enum):
+    BRIEF = "brief"
+    STANDARD = "standard"
+    BOARD_LEVEL_SUMMARY = "board_level_summary"
+
+
+class ParsedIntent(BaseModel):
+    """Typed schema for OpenAI structured output."""
+
+    is_follow_up: bool = Field(description="True if referring to previous answer")
+    primary_building_societies: list[str] = Field(default_factory=list)
+    comparison_building_societies: list[str] = Field(default_factory=list)
+    timeframe_type: TimeframeType = TimeframeType.ALL_AVAILABLE
+    calendar_year: Optional[int] = None
+    focus_areas: list[FocusArea] = Field(default_factory=lambda: [FocusArea.OVERALL])
+    question_type: QuestionType = QuestionType.OVERALL_SENTIMENT
+    sentiment_focus: SentimentFocus = SentimentFocus.ALL
+    detail_level: DetailLevel = DetailLevel.STANDARD
+
+
 PARSE_QUERY_SYSTEM_PROMPT = """You are a query parser for a UK building society customer sentiment analysis system.
 Parse the user's question into structured intent for querying review data.
 
-## Building Societies
 Available societies: {society_list}
 
-## Focus Areas (aspects)
-- overall: General sentiment
-- digital_banking: Online banking, website
-- mobile_app: Mobile application
-- branches: Physical branches
-- mortgages: Mortgage products
-- savings: Savings accounts
-- current_accounts: Current accounts
-- customer_service: Service quality
-- complaints_handling: How complaints are handled
-- fees_and_rates: Charges and rates
-
-## Question Types
-- overall_sentiment: General "how are we doing" questions
-- comparison: Comparing with other societies
-- trend_over_time: Changes over time
-- drivers_of_sentiment: What's causing positive/negative sentiment
-- examples_only: Just want example reviews
-- volume_and_mix: Questions about review counts and distribution
-
-## Timeframe Types
-- all_available: All data
-- last_12_months: Last 12 months
-- last_24_months: Last 24 months
-- calendar_year: Specific year (e.g., 2024)
-- since_covid: Since March 2020
-- recent_generic: Vague "recently" references
-
-## Sentiment Focus
-- all: Both positive and negative
-- mostly_negative: Focus on complaints/issues
-- mostly_positive: Focus on praise/satisfaction
-
-Respond with valid JSON matching the required schema."""
-
-PARSE_QUERY_FUNCTION = {
-    "name": "parse_query",
-    "description": "Parse a user question about UK building societies into structured intent",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "is_follow_up": {
-                "type": "boolean",
-                "description": "True if referring to previous answer",
-            },
-            "primary_building_societies": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Main societies the question is about",
-            },
-            "comparison_building_societies": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Societies used for comparison",
-            },
-            "timeframe_type": {
-                "type": "string",
-                "enum": [
-                    "all_available",
-                    "last_12_months",
-                    "last_24_months",
-                    "calendar_year",
-                    "since_covid",
-                    "recent_generic",
-                ],
-            },
-            "calendar_year": {
-                "type": "integer",
-                "description": "Specific year if timeframe_type is calendar_year",
-            },
-            "focus_areas": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "enum": [
-                        "overall",
-                        "digital_banking",
-                        "mobile_app",
-                        "branches",
-                        "mortgages",
-                        "savings",
-                        "current_accounts",
-                        "customer_service",
-                        "complaints_handling",
-                        "fees_and_rates",
-                    ],
-                },
-            },
-            "question_type": {
-                "type": "string",
-                "enum": [
-                    "overall_sentiment",
-                    "comparison",
-                    "trend_over_time",
-                    "drivers_of_sentiment",
-                    "examples_only",
-                    "volume_and_mix",
-                ],
-            },
-            "sentiment_focus": {
-                "type": "string",
-                "enum": ["all", "mostly_negative", "mostly_positive"],
-            },
-            "detail_level": {
-                "type": "string",
-                "enum": ["brief", "standard", "board_level_summary"],
-            },
-        },
-        "required": [
-            "is_follow_up",
-            "primary_building_societies",
-            "comparison_building_societies",
-            "timeframe_type",
-            "focus_areas",
-            "question_type",
-            "sentiment_focus",
-            "detail_level",
-        ],
-    },
-}
+Focus areas: overall, digital_banking, mobile_app, branches, mortgages, savings, current_accounts, customer_service, complaints_handling, fees_and_rates.
+Question types: overall_sentiment, comparison, trend_over_time, drivers_of_sentiment, examples_only, volume_and_mix.
+Timeframe types: all_available, last_12_months, last_24_months, calendar_year (set calendar_year), since_covid, recent_generic.
+Sentiment focus: all, mostly_negative, mostly_positive."""
 
 
 class QueryParser:
@@ -146,41 +88,25 @@ class QueryParser:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = settings.openai_model,
+        model: Optional[str] = None,
     ):
-        """Initialize the parser.
-
-        Args:
-            api_key: OpenAI API key
-            model: Model to use
-        """
         self.client = OpenAI(api_key=api_key or settings.openai_api_key)
-        self.model = model
+        self.model = model or settings.openai_model
 
-        # Build society list for prompt
         societies = get_all_societies()
         self.society_list = ", ".join([s.canonical_name for s in societies])
 
     def resolve_society_name(self, name: str) -> tuple[Optional[str], float]:
-        """Resolve a society name to its canonical ID.
-
-        Args:
-            name: User-provided society name
-
-        Returns:
-            Tuple of (society_id, confidence_score)
-        """
+        """Fuzzy-resolve a society name to its canonical ID."""
         name_lower = name.lower().strip()
 
-        # Direct lookup first
         if name_lower in ALIAS_TO_SOCIETY_ID:
             return ALIAS_TO_SOCIETY_ID[name_lower], 1.0
 
-        # Fuzzy match against all aliases
         all_aliases = list(ALIAS_TO_SOCIETY_ID.keys())
         match = process.extractOne(name_lower, all_aliases, scorer=fuzz.ratio)
 
-        if match and match[1] >= 70:  # 70% similarity threshold
+        if match and match[1] >= 70:
             matched_alias = match[0]
             society_id = ALIAS_TO_SOCIETY_ID[matched_alias]
             return society_id, match[1] / 100
@@ -191,90 +117,96 @@ class QueryParser:
         self,
         query: str,
         previous_intent: Optional[QueryIntent] = None,
+        forced_society_id: Optional[str] = None,
     ) -> QueryIntent:
         """Parse a query into structured intent.
 
-        Args:
-            query: User's natural language query
-            previous_intent: Intent from previous turn (for follow-ups)
-
-        Returns:
-            Parsed query intent
+        If ``forced_society_id`` is provided (the kiosk flow pins the active
+        society), we skip LLM parsing for society extraction and just use that
+        ID, letting the model handle timeframe / focus / sentiment / type.
         """
-        # Build system prompt
-        system_prompt = PARSE_QUERY_SYSTEM_PROMPT.format(
-            society_list=self.society_list
-        )
+        system_prompt = PARSE_QUERY_SYSTEM_PROMPT.format(society_list=self.society_list)
 
-        # Build user message with context
         user_message = f"Parse this question: {query}"
         if previous_intent:
-            user_message += f"\n\nPrevious context: {json.dumps(previous_intent.model_dump(), default=str)}"
+            user_message += (
+                f"\n\nPrevious context: "
+                f"{json.dumps(previous_intent.model_dump(), default=str)}"
+            )
 
-        # Call LLM with function calling
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            tools=[{"type": "function", "function": PARSE_QUERY_FUNCTION}],
-            tool_choice={"type": "function", "function": {"name": "parse_query"}},
-            temperature=0.3,
-        )
+        try:
+            response = self.client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=0.3,
+                response_format=ParsedIntent,
+            )
+            parsed: ParsedIntent = response.choices[0].message.parsed
+            if parsed is None:
+                parsed = ParsedIntent()
+        except Exception as e:  # noqa: BLE001
+            print(f"Query parser error: {e}")
+            parsed = ParsedIntent()
 
-        # Extract function call result
-        tool_call = response.choices[0].message.tool_calls[0]
-        parsed = json.loads(tool_call.function.arguments)
+        # Resolve society names to IDs (or pin to forced society)
+        if forced_society_id:
+            resolved_primary = [forced_society_id]
+            resolved_comparison: list[str] = []
+        else:
+            resolved_primary = []
+            for name in parsed.primary_building_societies:
+                society_id, _ = self.resolve_society_name(name)
+                if society_id:
+                    resolved_primary.append(society_id)
 
-        # Resolve society names to IDs
-        resolved_primary = []
-        for name in parsed.get("primary_building_societies", []):
-            society_id, confidence = self.resolve_society_name(name)
-            if society_id:
-                resolved_primary.append(society_id)
+            resolved_comparison = []
+            for name in parsed.comparison_building_societies:
+                society_id, _ = self.resolve_society_name(name)
+                if society_id:
+                    resolved_comparison.append(society_id)
 
-        resolved_comparison = []
-        for name in parsed.get("comparison_building_societies", []):
-            society_id, confidence = self.resolve_society_name(name)
-            if society_id:
-                resolved_comparison.append(society_id)
-
-        # Handle follow-ups
-        if parsed.get("is_follow_up") and previous_intent:
-            if not resolved_primary:
+        timeframe_type = parsed.timeframe_type.value
+        if parsed.is_follow_up and previous_intent:
+            if not resolved_primary and not forced_society_id:
                 resolved_primary = previous_intent.primary_building_societies
             if not resolved_comparison:
                 resolved_comparison = previous_intent.comparison_building_societies
-            if parsed.get("timeframe_type") == "all_available":
-                parsed["timeframe_type"] = previous_intent.timeframe_type
+            if timeframe_type == "all_available":
+                timeframe_type = previous_intent.timeframe_type
 
-        # Compute actual dates from timeframe
         timeframe_start = None
         timeframe_end = date.today()
 
-        if parsed.get("timeframe_type") == "last_12_months":
+        if timeframe_type == "last_12_months":
             timeframe_start = date(timeframe_end.year - 1, timeframe_end.month, 1)
-        elif parsed.get("timeframe_type") == "last_24_months":
+        elif timeframe_type == "last_24_months":
             timeframe_start = date(timeframe_end.year - 2, timeframe_end.month, 1)
-        elif parsed.get("timeframe_type") == "calendar_year":
-            year = parsed.get("calendar_year", timeframe_end.year)
+        elif timeframe_type == "calendar_year":
+            year = parsed.calendar_year or timeframe_end.year
             timeframe_start = date(year, 1, 1)
             timeframe_end = date(year, 12, 31)
-        elif parsed.get("timeframe_type") == "since_covid":
+        elif timeframe_type == "since_covid":
             timeframe_start = date(2020, 3, 1)
-        elif parsed.get("timeframe_type") == "recent_generic":
-            timeframe_start = date(timeframe_end.year, timeframe_end.month - 6, 1)
+        elif timeframe_type == "recent_generic":
+            month = timeframe_end.month - 6
+            year = timeframe_end.year
+            if month <= 0:
+                month += 12
+                year -= 1
+            timeframe_start = date(year, month, 1)
 
         return QueryIntent(
-            is_follow_up=parsed.get("is_follow_up", False),
+            is_follow_up=parsed.is_follow_up,
             primary_building_societies=resolved_primary,
             comparison_building_societies=resolved_comparison,
-            timeframe_type=parsed.get("timeframe_type", "all_available"),
+            timeframe_type=timeframe_type,
             timeframe_start=timeframe_start,
             timeframe_end=timeframe_end,
-            focus_areas=parsed.get("focus_areas", ["overall"]),
-            question_type=parsed.get("question_type", "overall_sentiment"),
-            sentiment_focus=parsed.get("sentiment_focus", "all"),
-            detail_level=parsed.get("detail_level", "standard"),
+            focus_areas=[f.value for f in parsed.focus_areas],
+            question_type=parsed.question_type.value,
+            sentiment_focus=parsed.sentiment_focus.value,
+            detail_level=parsed.detail_level.value,
         )

@@ -1,0 +1,80 @@
+{
+  "society_id": "swansea",
+  "source_id": "smartmoneypeople",
+  "scraped_at": "2025-11-28T14:58:25.939221",
+  "review_count": 6,
+  "reviews": [
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_swansea_2025-08-12T10:13:36+01:00_3950",
+      "building_society_id": "swansea",
+      "review_date": "2025-08-12",
+      "rating": 5,
+      "title": null,
+      "body": "Have just opened an online account with Swansea Building Society. The process was very straightforward and the account showed up in My Accounts very quickly. Also opened a regular saver account. It is a pity more accounts cannot be opened online as I had to email the forms for the regular saver to be opened but, to be fair, they were on to opening the account as soon as they received the forms. Spoke to a member of staff of the Swansea Branch re a query and they were extremely helpful. They are not the most up to date in relation to their online offering but I would highly recommend.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_swansea_2025-07-03T10:13:06+01:00_1168",
+      "building_society_id": "swansea",
+      "review_date": "2025-07-03",
+      "rating": 1,
+      "title": null,
+      "body": "Current manager mumbles branch works to close to the book no flexibility not really customer friendly but a good actor for a local building society makes his mind up by looking nothing like previous managers",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_swansea_2024-04-06T10:18:39+01:00_9908",
+      "building_society_id": "swansea",
+      "review_date": "2024-04-06",
+      "rating": 5,
+      "title": null,
+      "body": "As always Swansea Building Society gives excellent customer service with a traditional personal touch. Really good interest rates too with good advice, making the customer aware. This is my experience with the Cowbridge branch.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_swansea_2023-04-20T17:44:37+01:00_1685",
+      "building_society_id": "swansea",
+      "review_date": "2023-04-20",
+      "rating": 1,
+      "title": null,
+      "body": "Their non-online online provision is dreadful. Online in name only. Can't open accounts online, only by paper. Can't transfer money automatically, has to be entered on-line then manually authorised. Can't download statements, have to ask for a paper statement to be posted. Claim to do electronic ISA transfers but don't as they have to send a form for you to sign when they get a transfer out request but it is never mentioned until the form arrives in the post (by the time they sent the form 2 other ISA transfers had been completed). If they send you a secure message they don't inform you that a message is there you have to log on to check. Abysmal online service not worth bothering with.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_swansea_2023-03-03T14:48:27+00:00_6041",
+      "building_society_id": "swansea",
+      "review_date": "2023-03-03",
+      "rating": 5,
+      "title": null,
+      "body": "Don't live near a branch so opened an account with them through the Carmarthen Branch (by post and telephone). Absolutely superb support and customer service - the best I've experienced from any financial institution. Would highly recommend the Swansea Building Society and the Carmarthen Branch to anyone",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    },
+    {
+      "source_id": "smartmoneypeople",
+      "source_review_id": "smp_swansea_2022-01-15T21:03:41+00:00_3155",
+      "building_society_id": "swansea",
+      "review_date": "2022-01-15",
+      "rating": 5,
+      "title": null,
+      "body": "Fantastic building society. They offer great savings rates and their customer service is excellent. They also offer very good mortgages to key workers in recognition of their efforts.",
+      "reviewer_name": null,
+      "location": null,
+      "app_version": null
+    }
+  ]
+}

@@ -13,10 +13,15 @@ from src.config.settings import settings
 from src.config.societies import get_all_societies, get_society_by_id
 from src.scrapers import (
     AppStoreScraper,
+    FairerFinanceScraper,
     FeefoScraper,
+    GoogleScraper,
+    MSEScraper,
     PlayStoreScraper,
+    RedditScraper,
     SmartMoneyPeopleScraper,
     TrustpilotScraper,
+    WhichScraper,
 )
 
 
@@ -30,7 +35,19 @@ def main():
     parser.add_argument(
         "--sources",
         nargs="+",
-        choices=["trustpilot", "appstore", "playstore", "smartmoneypeople", "feefo", "all"],
+        choices=[
+            "trustpilot",
+            "appstore",
+            "playstore",
+            "smartmoneypeople",
+            "feefo",
+            "reddit",
+            "mse",
+            "google",
+            "fairer_finance",
+            "which",
+            "all",
+        ],
         default=["all"],
         help="Sources to scrape (default: all)",
     )
@@ -78,7 +95,18 @@ def main():
     print()
 
     # Determine which sources to scrape
-    all_sources = ["trustpilot", "appstore", "playstore", "smartmoneypeople", "feefo"]
+    all_sources = [
+        "trustpilot",
+        "appstore",
+        "playstore",
+        "smartmoneypeople",
+        "feefo",
+        "reddit",
+        "mse",
+        "google",
+        "fairer_finance",
+        "which",
+    ]
     sources = args.sources if "all" not in args.sources else all_sources
 
     total_reviews = 0
@@ -143,8 +171,68 @@ def main():
             print(f"Total Feefo reviews: {count}")
         print()
 
+    # Scrape Reddit (forum mentions)
+    if "reddit" in sources:
+        print("=" * 60)
+        print("REDDIT")
+        print("=" * 60)
+        with RedditScraper(output_dir=args.output_dir) as scraper:
+            results = scraper.scrape_all(societies, args.start_date, args.end_date)
+            count = sum(len(r) for r in results.values())
+            total_reviews += count
+            print(f"Total Reddit mentions: {count}")
+        print()
+
+    # Scrape MoneySavingExpert (forum mentions)
+    if "mse" in sources:
+        print("=" * 60)
+        print("MONEYSAVINGEXPERT")
+        print("=" * 60)
+        with MSEScraper(output_dir=args.output_dir) as scraper:
+            results = scraper.scrape_all(societies, args.start_date, args.end_date)
+            count = sum(len(r) for r in results.values())
+            total_reviews += count
+            print(f"Total MSE mentions: {count}")
+        print()
+
+    # Scrape Google (reviews via SerpAPI)
+    if "google" in sources:
+        print("=" * 60)
+        print("GOOGLE REVIEWS")
+        print("=" * 60)
+        with GoogleScraper(output_dir=args.output_dir) as scraper:
+            results = scraper.scrape_all(societies, args.start_date, args.end_date)
+            count = sum(len(r) for r in results.values())
+            total_reviews += count
+            print(f"Total Google reviews: {count}")
+        print()
+
+    # Scrape Fairer Finance (editorial ratings)
+    if "fairer_finance" in sources:
+        print("=" * 60)
+        print("FAIRER FINANCE")
+        print("=" * 60)
+        with FairerFinanceScraper(output_dir=args.output_dir) as scraper:
+            results = scraper.scrape_all(societies, args.start_date, args.end_date)
+            count = sum(len(r) for r in results.values())
+            total_reviews += count
+            print(f"Total Fairer Finance ratings: {count}")
+        print()
+
+    # Which? editorial (seed-driven)
+    if "which" in sources:
+        print("=" * 60)
+        print("WHICH? MONEY")
+        print("=" * 60)
+        with WhichScraper(output_dir=args.output_dir) as scraper:
+            results = scraper.scrape_all(societies, args.start_date, args.end_date)
+            count = sum(len(r) for r in results.values())
+            total_reviews += count
+            print(f"Total Which? ratings: {count}")
+        print()
+
     print("=" * 60)
-    print(f"TOTAL REVIEWS SCRAPED: {total_reviews}")
+    print(f"TOTAL ITEMS SCRAPED: {total_reviews}")
     print("=" * 60)
 
 

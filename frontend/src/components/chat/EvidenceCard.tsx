@@ -2,6 +2,12 @@ import type { ReviewSnippet, SentimentLabel } from "../../api/types";
 
 interface EvidenceCardProps {
   snippet: ReviewSnippet;
+  /**
+   * Zero-indexed position. Used both as a DOM anchor (id=snippet-N) so inline
+   * `[[s_N]]` citations can scroll to this card, and as the visible [N] badge.
+   */
+  index: number;
+  highlighted?: boolean;
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -41,12 +47,20 @@ function SentimentBadge({ sentiment }: { sentiment: SentimentLabel }) {
   );
 }
 
-export function EvidenceCard({ snippet }: EvidenceCardProps) {
-  return (
-    <div className="bg-gray-50 rounded-lg p-3 text-sm">
-      {/* Header */}
+export function EvidenceCard({ snippet, index, highlighted }: EvidenceCardProps) {
+  const base =
+    "bg-gray-50 rounded-lg p-3 text-sm transition-all duration-300 scroll-mt-20";
+  const highlightCls = highlighted
+    ? "ring-2 ring-blue-400 bg-blue-50"
+    : "";
+
+  const content = (
+    <div id={`snippet-${index}`} className={`${base} ${highlightCls}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-gray-500 bg-white border border-gray-200 rounded px-1.5 py-0.5">
+            [{index}]
+          </span>
           <span className="font-medium text-gray-700">
             {snippet.building_society_name}
           </span>
@@ -58,12 +72,8 @@ export function EvidenceCard({ snippet }: EvidenceCardProps) {
         </div>
       </div>
 
-      {/* Snippet text */}
-      <p className="text-gray-600 leading-relaxed">
-        {snippet.snippet_text}
-      </p>
+      <p className="text-gray-600 leading-relaxed">{snippet.snippet_text}</p>
 
-      {/* Topics */}
       {snippet.topics.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           {snippet.topics.map((topic, idx) => (
@@ -77,14 +87,33 @@ export function EvidenceCard({ snippet }: EvidenceCardProps) {
         </div>
       )}
 
-      {/* Date */}
-      <div className="text-xs text-gray-400 mt-2">
-        {new Date(snippet.review_date).toLocaleDateString("en-GB", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}
+      <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
+        <span>
+          {new Date(snippet.review_date).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </span>
+        {snippet.source_url && (
+          <span className="text-blue-500 hover:underline">View original →</span>
+        )}
       </div>
     </div>
   );
+
+  if (snippet.source_url) {
+    return (
+      <a
+        href={snippet.source_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block no-underline"
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return content;
 }

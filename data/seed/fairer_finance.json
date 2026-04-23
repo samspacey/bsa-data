@@ -1,0 +1,16 @@
+{
+  "_readme": "Curated Fairer Finance editorial ratings per society, used as fallback when the live scraper can't parse the provider page. Keys are building-society IDs matching src/config/societies.py. Each entry should be a category rating. Fill in from https://www.fairerfinance.com/ratings before demo.",
+  "_example": [
+    {
+      "category": "Current Accounts — Customer Experience",
+      "rating_value": 5.0,
+      "rating_scale_max": 5.0,
+      "summary": "Gold Ribbon: one of the top-rated current accounts for customer experience (placeholder)."
+    }
+  ],
+  "nationwide": [],
+  "coventry": [],
+  "yorkshire": [],
+  "skipton": [],
+  "leeds": []
+}

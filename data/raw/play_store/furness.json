@@ -1,0 +1,104 @@
+{
+  "society_id": "furness",
+  "source_id": "play_store",
+  "scraped_at": "2025-11-28T14:54:46.372046",
+  "review_count": 8,
+  "reviews": [
+    {
+      "source_id": "play_store",
+      "source_review_id": "04381be3-d103-4767-b765-ed076c5cab93",
+      "building_society_id": "furness",
+      "review_date": "2025-04-18",
+      "rating": 1,
+      "title": null,
+      "body": "As I don't have a passport or driving licence, it is impossible for me to set it up!!! 😡😡😡😡 it wouldn't let me post this unless I give one star. it isn't worth that",
+      "reviewer_name": "Mark Barrow",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "468d6d9d-141f-4b65-96b8-fbd18dc9add5",
+      "building_society_id": "furness",
+      "review_date": "2025-04-09",
+      "rating": 4,
+      "title": null,
+      "body": "Mostly fine BUT the process was let down by it being extremely difficult to satisfy and complete the ID & photo capture section.",
+      "reviewer_name": "Ruth Boyle",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "c53849eb-3b3a-4233-8ae4-fdbe899d3ef1",
+      "building_society_id": "furness",
+      "review_date": "2025-03-16",
+      "rating": 1,
+      "title": null,
+      "body": "The attempt to verify you with a picture of your documents and a picture of you is so appalling that I'm wondering if this really is the genuine app for a building society or whether I've been scammed. it can't take the photo, when you do it manually it can't orient it properly. I'm uninstalling and going elsewhere for an account. I can't stand bad apps.",
+      "reviewer_name": "Paul W",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "235cf6ad-a0d3-4805-9b9c-39dfb155ac51",
+      "building_society_id": "furness",
+      "review_date": "2025-01-24",
+      "rating": 5,
+      "title": null,
+      "body": "I can keep an check on my savings without going to town or ringing its great",
+      "reviewer_name": "angela Lawton",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "e9e4a434-2f7b-4bef-b825-e03bcf92349c",
+      "building_society_id": "furness",
+      "review_date": "2024-10-16",
+      "rating": 3,
+      "title": null,
+      "body": "Not brilliant. Was forced to move from simple online account through website to this App when found my password was not working. Had issues with automatic photo taking as did not work had to switch to manual and eventually made that work.",
+      "reviewer_name": "Harry Knowles",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "56b8afed-7f24-46ac-9dc3-96fca756c4d3",
+      "building_society_id": "furness",
+      "review_date": "2024-08-24",
+      "rating": 5,
+      "title": null,
+      "body": "👍",
+      "reviewer_name": "Carole Mc Greal",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "a3394f11-503b-4e2f-9057-5c2d88a4bb02",
+      "building_society_id": "furness",
+      "review_date": "2024-08-23",
+      "rating": 1,
+      "title": null,
+      "body": "The front page states its quick n easy 🤣. It's anything but ! Already have an online account, but cant use those details to login. Auto face recognition doesn't take picture, just constantly says hold smile. Doesn't work after 7 attempts and when switching to manual capture you just get a spinning wheel and it will not open the capture page. Then it just sends you back to taking a pic of ID AGAIN !!! Very long winded so have given up. 7weeks later, not any acknowledgement, says it all really !",
+      "reviewer_name": "D",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    },
+    {
+      "source_id": "play_store",
+      "source_review_id": "92adfb96-0096-46f1-9d13-af9a3405a1e7",
+      "building_society_id": "furness",
+      "review_date": "2024-08-13",
+      "rating": 1,
+      "title": null,
+      "body": "Frustrating",
+      "reviewer_name": "Janet Rance",
+      "location": null,
+      "app_version": "2023.09-LTS.2.22.0"
+    }
+  ]
+}
