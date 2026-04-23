@@ -292,6 +292,44 @@ class ContentMention(Base):
     enriched_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
 
+class AnalyticsEvent(Base):
+    """Generic usage event log for the kiosk/demo.
+
+    Captures what users do in the app: questions typed, reports downloaded,
+    emails entered, screen transitions. Simple append-only table so it's easy
+    to query with plain SQL. No PII beyond what the user voluntarily types
+    (email addresses) - keep that in mind when sharing dumps.
+    """
+
+    __tablename__ = "analytics_event"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Kind of thing that happened: "page_view", "question_sent", "email_entered",
+    # "report_downloaded", "report_emailed", "society_selected", "persona_selected",
+    # "chat_response_generated" (server-side mirror of question_sent with timing).
+    event_type: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+
+    # Client-supplied id that groups a single user's journey. Stored in the
+    # browser's localStorage. Optional because some events (server-side chat
+    # logging) may not have it if the frontend forgot to send.
+    session_id: Mapped[Optional[str]] = mapped_column(String(64), index=True)
+
+    # Society + persona in scope, if applicable. Redundant with payload but
+    # indexed for easy filtering.
+    building_society_id: Mapped[Optional[str]] = mapped_column(String(50))
+    persona_id: Mapped[Optional[str]] = mapped_column(String(30))
+
+    # Event-specific properties as JSON (question text, email, report section,
+    # response length, etc.). Stored as Text for cross-dialect compatibility.
+    payload: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Request metadata
+    user_agent: Mapped[Optional[str]] = mapped_column(String(400))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(50))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
 class EmbeddingDocument(Base):
     """Documents for the vector index (stored separately, metadata here)."""
 

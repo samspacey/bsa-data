@@ -1,10 +1,11 @@
 """Chat endpoint for the conversational interface."""
 
 import json
+import time
 import uuid
 from typing import AsyncGenerator, Optional, Union
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from src.config.societies import SOCIETY_BY_ID
@@ -16,6 +17,7 @@ from src.data.schemas import (
     PersonaSpec,
     QueryIntent,
 )
+from src.api.routes.events import log_event
 from src.api.services.answer_gen import AnswerGenerator, Persona
 from src.api.services.query_parser import QueryParser
 from src.api.services.retrieval import RetrievalService
@@ -134,7 +136,7 @@ def _sse(event: str, data: Union[dict, str]) -> str:
 
 
 @router.post("/stream")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(request: ChatRequest, http_request: Request):
     """Streaming chat via SSE. Supports optional society + persona roleplay."""
     session = get_session_state(request.session_id)
     session["turn_count"] += 1
@@ -144,6 +146,25 @@ async def chat_stream(request: ChatRequest):
     persona = _persona_from_request(request.persona)
     society = SOCIETY_BY_ID.get(request.society_id) if request.society_id else None
     society_name = society.canonical_name if society else None
+
+    # Log the question before the model runs. Truncate to keep the DB clean;
+    # full question is still available in the server logs if needed.
+    ua = http_request.headers.get("user-agent")
+    fwd = http_request.headers.get("x-forwarded-for", "")
+    ip = fwd.split(",")[0].strip() if fwd else (http_request.client.host if http_request.client else None)
+    log_event(
+        event_type="question_sent",
+        session_id=session["id"],
+        building_society_id=request.society_id,
+        persona_id=request.persona.id if request.persona else None,
+        props={
+            "question": request.message[:2000],
+            "turn": session["turn_count"],
+            "persona_name": request.persona.name if request.persona else None,
+        },
+        user_agent=ua,
+        ip_address=ip,
+    )
 
     previous_intent = session.get("previous_intent")
     if previous_intent:
@@ -156,6 +177,7 @@ async def chat_stream(request: ChatRequest):
     session["previous_intent"] = intent.model_dump(mode="json")
 
     engine = get_engine()
+    started_at = time.monotonic()
 
     async def event_stream() -> AsyncGenerator[bytes, None]:
         accumulated = ""
@@ -212,6 +234,20 @@ async def chat_stream(request: ChatRequest):
             )
             yield _sse("followups", {"followups": followups}).encode("utf-8")
 
+        # Log completion with response stats (outside the DB session so a
+        # failure to log doesn't roll back the chat session update).
+        log_event(
+            event_type="chat_response_generated",
+            session_id=session["id"],
+            building_society_id=request.society_id,
+            persona_id=request.persona.id if request.persona else None,
+            props={
+                "turn": session["turn_count"],
+                "response_chars": len(accumulated),
+                "snippets_returned": len(snippets),
+                "duration_ms": int((time.monotonic() - started_at) * 1000),
+            },
+        )
         yield _sse("done", {}).encode("utf-8")
 
     return StreamingResponse(

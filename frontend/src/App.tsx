@@ -6,6 +6,7 @@ import { ChatInterface } from "./pages/ChatInterface";
 import { BenchmarkModal } from "./pages/BenchmarkModal";
 import type { Society } from "./data/societies";
 import type { Archetype } from "./data/archetypes";
+import { resetSessionId, trackEvent } from "./api/analytics";
 
 type Screen = "screensaver" | "society" | "persona" | "chat";
 
@@ -30,13 +31,23 @@ function App() {
   }, [screen]);
 
   if (screen === "screensaver") {
-    return <Screensaver onEnter={() => setScreen("society")} />;
+    return (
+      <Screensaver
+        onEnter={() => {
+          // New journey -> new session id so analytics sees this as a distinct run.
+          resetSessionId();
+          trackEvent("screensaver_entered");
+          setScreen("society");
+        }}
+      />
+    );
   }
 
   if (screen === "society") {
     return (
       <SocietySelection
         onSelect={s => {
+          trackEvent("society_selected", { societyId: s.id, props: { society_name: s.name } });
           setSociety(s);
           setScreen("persona");
         }}
@@ -48,8 +59,16 @@ function App() {
     return (
       <PersonaSelection
         society={society}
-        onBack={() => setScreen("society")}
+        onBack={() => {
+          trackEvent("navigated_back", { societyId: society.id, props: { from: "persona" } });
+          setScreen("society");
+        }}
         onSelect={a => {
+          trackEvent("persona_selected", {
+            societyId: society.id,
+            persona: { id: a.id },
+            props: { persona_name: a.name },
+          });
           setPersona(a);
           setScreen("chat");
         }}
@@ -64,13 +83,28 @@ function App() {
           society={society}
           persona={persona}
           onBack={() => {
+            trackEvent("chat_exited", {
+              societyId: society.id,
+              persona: { id: persona.id },
+            });
             setSociety(null);
             setPersona(null);
             setScreen("screensaver");
           }}
-          onOpenBenchmark={() => setBenchmarkOpen(true)}
+          onOpenBenchmark={() => {
+            trackEvent("benchmark_opened", {
+              societyId: society.id,
+              persona: { id: persona.id },
+            });
+            setBenchmarkOpen(true);
+          }}
         />
-        {benchmarkOpen && <BenchmarkModal society={society} onClose={() => setBenchmarkOpen(false)} />}
+        {benchmarkOpen && (
+          <BenchmarkModal
+            society={society}
+            onClose={() => setBenchmarkOpen(false)}
+          />
+        )}
       </>
     );
   }

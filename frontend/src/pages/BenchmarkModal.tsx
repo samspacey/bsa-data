@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Icon } from "../components/brand/Icons";
+import { trackEvent } from "../api/analytics";
 import type { Society } from "../data/societies";
+import { PDFReport, type PDFReportScore } from "./PDFReport";
 
 interface Score {
   factor: string;
@@ -60,6 +62,7 @@ export function BenchmarkModal({ society, onClose }: Props) {
   const [emailInput, setEmailInput] = useState("");
 
   const handleDownload = () => {
+    trackEvent("report_downloaded", { societyId: society.id });
     // Trigger the browser's print dialog. The @media print rules in index.css
     // hide everything except the modal content so the user gets a clean
     // "Save as PDF" output with just the report.
@@ -68,36 +71,54 @@ export function BenchmarkModal({ society, onClose }: Props) {
 
   const handleEmail = () => {
     const to = emailInput.trim();
+    trackEvent("report_emailed", {
+      societyId: society.id,
+      props: { email: to || null, had_email: Boolean(to) },
+    });
     const subject = encodeURIComponent(`${society.short} - BSA benchmark report`);
     const body = encodeURIComponent(buildEmailBody(society));
     const recipient = to ? encodeURIComponent(to) : "";
     // mailto opens the user's default mail client with the report pre-filled.
-    // Simple, works everywhere, no backend mail dependency.
     window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
     setEmailPrompt(false);
     setEmailInput("");
   };
 
+  // PDFReport takes a slightly narrower score shape (no `reviews` count).
+  const pdfScores: PDFReportScore[] = scores.map(s => ({
+    factor: s.factor,
+    score: s.score,
+    avg: s.avg,
+    rank: s.rank,
+    status: s.status,
+  }));
+
   return (
-    <div
-      onClick={onClose}
-      className="print-overlay"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15, 16, 51, 0.55)",
-        backdropFilter: "blur(8px)",
-        padding: "40px 48px",
-        fontFamily: "var(--font-sans)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 50,
-      }}
-    >
+    <>
+      {/* Print-only: the full A4 report. Hidden on screen, visible in the
+          browser's Save-as-PDF flow thanks to .print-only in index.css. */}
+      <div className="print-only">
+        <PDFReport society={society} scores={pdfScores} />
+      </div>
+
+      <div
+        onClick={onClose}
+        className="print-hide"
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 16, 51, 0.55)",
+          backdropFilter: "blur(8px)",
+          padding: "40px 48px",
+          fontFamily: "var(--font-sans)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 50,
+        }}
+      >
       <div
         onClick={e => e.stopPropagation()}
-        className="print-target"
         style={{
           background: "#FFFFFF",
           borderRadius: 20,
@@ -122,7 +143,6 @@ export function BenchmarkModal({ society, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="print-hide"
             style={{
               background: "var(--paper-2)",
               border: "none",
@@ -192,7 +212,6 @@ export function BenchmarkModal({ society, onClose }: Props) {
         </div>
 
         <div
-          className="print-hide"
           style={{ padding: "20px 36px", borderTop: "1px solid var(--line)", background: "var(--paper)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}
         >
           <div style={{ fontSize: 12, color: "var(--ink-3)", flex: "1 1 auto", minWidth: 220 }}>
@@ -246,6 +265,7 @@ export function BenchmarkModal({ society, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
