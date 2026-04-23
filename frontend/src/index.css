@@ -170,20 +170,27 @@ html, body {
 
 .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
 
-/* "Download PDF" in the BenchmarkModal calls window.print(). Only the
- * PDFReport component is in the .print-only wrapper, so that's all that
- * appears in the output. The rest of the app is under .print-hide and
- * disappears. */
-.print-only { display: none; }
+/* "Download PDF" in the BenchmarkModal calls window.print().
+ *
+ * The PDFReport is rendered via createPortal into body > #print-root so it
+ * sits OUTSIDE React's #root subtree. During print we hide #root entirely
+ * and show #print-root so the output is only the report, not the chat
+ * screen behind the modal.
+ */
+#print-root { display: none; }
 
 @media print {
   @page { margin: 0; size: A4; }
-  html, body { background: #FFFFFF !important; }
-  .print-hide { display: none !important; }
-  .print-only { display: block !important; }
-  .print-only > * {
+  html, body { background: #FFFFFF !important; margin: 0 !important; padding: 0 !important; }
+  #root { display: none !important; }
+  #print-root {
+    display: block !important;
+    position: static !important;
+  }
+  #print-root > * {
     margin: 0 !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+    page-break-inside: avoid;
   }
 }

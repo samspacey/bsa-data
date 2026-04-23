@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "../components/brand/Icons";
 import { trackEvent } from "../api/analytics";
 import type { Society } from "../data/societies";
@@ -39,33 +40,131 @@ const ord = (n: number) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
+/**
+ * Render the seven-factor benchmark as a clean plain-text email body.
+ * mailto: bodies are plain-text only - most clients strip or escape HTML -
+ * so we lean on Unicode box-drawing + padding to keep it readable.
+ */
 function buildEmailBody(society: Society): string {
   const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const lines: string[] = [
-    `Benchmark report - ${society.name}`,
-    `Seven-factor comparison vs 42 UK building societies`,
-    `Generated ${today} · Woodhurst Consulting`,
-    "",
-  ];
+  const aboveCount = scores.filter(s => s.status === "above").length;
+  const belowCount = scores.filter(s => s.status === "below").length;
+  const topStrength = [...scores].filter(s => s.status === "above").sort((a, b) => b.score - a.score)[0];
+  const biggestGap = [...scores].filter(s => s.status === "below").sort((a, b) => a.score - b.score)[0];
+
+  const rule = "━".repeat(64);
+  const soft = "─".repeat(64);
+
+  const lines: string[] = [];
+  lines.push(rule);
+  lines.push(`  MEMBER EXPERIENCE BENCHMARK`);
+  lines.push(`  ${society.name}`);
+  lines.push(`  ${society.region}  ·  benchmarked against 42 UK building societies`);
+  lines.push(`  ${today}  ·  Woodhurst Consulting  ·  Confidential`);
+  lines.push(rule);
+  lines.push("");
+
+  lines.push("HEADLINE");
+  lines.push(soft);
+  lines.push(`  Overall position   ${aboveCount > 0 ? `Above average on ${aboveCount} of ${scores.length}` : `Parity or below on all ${scores.length}`}${belowCount > 0 ? `, gaps on ${belowCount}` : ""}`);
+  if (topStrength) {
+    lines.push(`  Top strength       ${topStrength.factor.padEnd(24)} ${topStrength.score.toFixed(1)} / 10  ·  ranked ${ord(topStrength.rank)}`);
+  }
+  if (biggestGap) {
+    lines.push(`  Biggest gap        ${biggestGap.factor.padEnd(24)} ${biggestGap.score.toFixed(1)} / 10  ·  ranked ${ord(biggestGap.rank)}`);
+  }
+  lines.push("");
+
+  lines.push("SCORES BY FACTOR");
+  lines.push(soft);
+  lines.push(`  ${"FACTOR".padEnd(22)} ${"SCORE".padStart(6)}  ${"AVG".padStart(5)}  ${"DIFF".padStart(6)}  ${"RANK".padStart(5)}  STATUS`);
   scores.forEach(s => {
     const diff = s.score - s.avg;
+    const diffStr = `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}`;
+    const statusLabel = s.status === "above" ? "Above avg" : s.status === "below" ? "Below avg" : "Near avg";
     lines.push(
-      `${s.factor}: ${s.score.toFixed(1)} / 10 - sector avg ${s.avg.toFixed(1)} (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}), ranked ${ord(s.rank)} of 42, ${s.reviews} reviews`
+      `  ${s.factor.padEnd(22)} ${s.score.toFixed(1).padStart(6)}  ${s.avg.toFixed(1).padStart(5)}  ${diffStr.padStart(6)}  ${ord(s.rank).padStart(5)}  ${statusLabel}`
     );
   });
-  lines.push("", "Derived from keyword sentiment analysis of Smart Money People, Trustpilot, app store, Feefo and editorial sources. Methodology: https://bsa-member-chat.vercel.app/");
+  lines.push("");
+
+  lines.push("RECOMMENDED FOCUS");
+  lines.push(soft);
+  const recs = [
+    "Protect branch experience for members whose relationship with the society is anchored there.",
+    "Close the digital gap: app and sign-in flows are the biggest friction in recent reviews.",
+    "Lead communications with community narrative, it is your most under-expressed strength.",
+  ];
+  recs.forEach((t, i) => {
+    const prefix = `  ${String(i + 1).padStart(2, "0")}  `;
+    // Simple word-wrap at 62 cols so it reads in a 72-col mail client.
+    const indent = " ".repeat(prefix.length);
+    const wrapped = wrapParagraph(t, 62);
+    lines.push(prefix + wrapped[0]);
+    for (const w of wrapped.slice(1)) lines.push(indent + w);
+  });
+  lines.push("");
+
+  lines.push(rule);
+  lines.push(
+    "  Derived from keyword sentiment analysis of Smart Money People,"
+  );
+  lines.push(
+    "  Trustpilot, app stores, Feefo and editorial sources."
+  );
+  lines.push("  Read the full dashboard: https://bsa-member-chat.vercel.app/");
+  lines.push(rule);
+
   return lines.join("\n");
+}
+
+function wrapParagraph(text: string, width: number): string[] {
+  const words = text.split(/\s+/);
+  const out: string[] = [];
+  let line = "";
+  for (const w of words) {
+    if ((line + " " + w).trim().length > width) {
+      if (line) out.push(line);
+      line = w;
+    } else {
+      line = line ? line + " " + w : w;
+    }
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+/**
+ * Ensure a <div id="print-root"> exists at document.body level. The
+ * BenchmarkModal portals the PDFReport into it so it sits OUTSIDE React's
+ * normal #root tree. That matters because @media print hides #root
+ * entirely - otherwise the print output also includes the chat screen
+ * behind the modal.
+ */
+function usePrintRoot(): HTMLElement | null {
+  const [node, setNode] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    let el = document.getElementById("print-root");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "print-root";
+      document.body.appendChild(el);
+    }
+    setNode(el);
+  }, []);
+  return node;
 }
 
 export function BenchmarkModal({ society, onClose }: Props) {
   const [emailPrompt, setEmailPrompt] = useState(false);
   const [emailInput, setEmailInput] = useState("");
+  const printRoot = usePrintRoot();
 
   const handleDownload = () => {
     trackEvent("report_downloaded", { societyId: society.id });
-    // Trigger the browser's print dialog. The @media print rules in index.css
-    // hide everything except the modal content so the user gets a clean
-    // "Save as PDF" output with just the report.
+    // Print flow: #root is hidden by @media print rules and the portaled
+    // PDFReport (in #print-root) becomes the only visible element. See
+    // index.css @media print.
     window.print();
   };
 
@@ -95,15 +194,13 @@ export function BenchmarkModal({ society, onClose }: Props) {
 
   return (
     <>
-      {/* Print-only: the full A4 report. Hidden on screen, visible in the
-          browser's Save-as-PDF flow thanks to .print-only in index.css. */}
-      <div className="print-only">
-        <PDFReport society={society} scores={pdfScores} />
-      </div>
+      {/* Render the A4 PDFReport into body > #print-root (outside React's
+          #root tree). On screen #print-root is display:none; in print mode
+          #root is hidden and #print-root takes over. */}
+      {printRoot && createPortal(<PDFReport society={society} scores={pdfScores} />, printRoot)}
 
       <div
         onClick={onClose}
-        className="print-hide"
         style={{
           position: "fixed",
           inset: 0,
