@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Icon } from "../components/brand/Icons";
 import type { Society } from "../data/societies";
 
@@ -36,10 +37,51 @@ const ord = (n: number) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
+function buildEmailBody(society: Society): string {
+  const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const lines: string[] = [
+    `Benchmark report — ${society.name}`,
+    `Seven-factor comparison vs 42 UK building societies`,
+    `Generated ${today} · Woodhurst Consulting`,
+    "",
+  ];
+  scores.forEach(s => {
+    const diff = s.score - s.avg;
+    lines.push(
+      `${s.factor}: ${s.score.toFixed(1)} / 10 — sector avg ${s.avg.toFixed(1)} (${diff >= 0 ? "+" : ""}${diff.toFixed(1)}), ranked ${ord(s.rank)} of 42, ${s.reviews} reviews`
+    );
+  });
+  lines.push("", "Derived from keyword sentiment analysis of Smart Money People, Trustpilot, app store, Feefo and editorial sources. Methodology: https://bsa-member-chat.vercel.app/");
+  return lines.join("\n");
+}
+
 export function BenchmarkModal({ society, onClose }: Props) {
+  const [emailPrompt, setEmailPrompt] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+
+  const handleDownload = () => {
+    // Trigger the browser's print dialog. The @media print rules in index.css
+    // hide everything except the modal content so the user gets a clean
+    // "Save as PDF" output with just the report.
+    window.print();
+  };
+
+  const handleEmail = () => {
+    const to = emailInput.trim();
+    const subject = encodeURIComponent(`${society.short} — BSA benchmark report`);
+    const body = encodeURIComponent(buildEmailBody(society));
+    const recipient = to ? encodeURIComponent(to) : "";
+    // mailto opens the user's default mail client with the report pre-filled.
+    // Simple, works everywhere, no backend mail dependency.
+    window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
+    setEmailPrompt(false);
+    setEmailInput("");
+  };
+
   return (
     <div
       onClick={onClose}
+      className="print-overlay"
       style={{
         position: "fixed",
         inset: 0,
@@ -55,6 +97,7 @@ export function BenchmarkModal({ society, onClose }: Props) {
     >
       <div
         onClick={e => e.stopPropagation()}
+        className="print-target"
         style={{
           background: "#FFFFFF",
           borderRadius: 20,
@@ -74,11 +117,12 @@ export function BenchmarkModal({ society, onClose }: Props) {
               How {society.short} compares
             </h2>
             <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 6 }}>
-              Seven factors · against 42 UK building societies · updated 21 April 2026
+              Seven factors · against 42 UK building societies · updated {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
             </div>
           </div>
           <button
             onClick={onClose}
+            className="print-hide"
             style={{
               background: "var(--paper-2)",
               border: "none",
@@ -147,17 +191,59 @@ export function BenchmarkModal({ society, onClose }: Props) {
           </div>
         </div>
 
-        <div style={{ padding: "20px 36px", borderTop: "1px solid var(--line)", background: "var(--paper)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
-            Derived from keyword sentiment analysis of Smart Money People and Trustpilot reviews.{" "}
-            <a href="#" style={{ color: "var(--navy)", textDecoration: "underline" }}>Methodology</a>.
+        <div
+          className="print-hide"
+          style={{ padding: "20px 36px", borderTop: "1px solid var(--line)", background: "var(--paper)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}
+        >
+          <div style={{ fontSize: 12, color: "var(--ink-3)", flex: "1 1 auto", minWidth: 220 }}>
+            Derived from keyword sentiment analysis of Smart Money People, Trustpilot, app store and editorial sources.
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn" style={{ fontSize: 13 }}>Email the report</button>
-            <button className="btn btn-primary" style={{ fontSize: 13 }}>
-              <Icon.Doc /> Download PDF
-            </button>
-          </div>
+          {emailPrompt ? (
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleEmail();
+              }}
+              style={{ display: "flex", gap: 6, alignItems: "center" }}
+            >
+              <input
+                type="email"
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                placeholder="recipient@example.com (optional)"
+                autoFocus
+                style={{
+                  fontSize: 13,
+                  padding: "8px 12px",
+                  border: "1.5px solid var(--line-2)",
+                  borderRadius: 8,
+                  fontFamily: "var(--font-sans)",
+                  minWidth: 260,
+                  outline: "none",
+                }}
+              />
+              <button type="submit" className="btn btn-primary" style={{ fontSize: 13 }}>
+                Compose email
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmailPrompt(false)}
+                className="btn"
+                style={{ fontSize: 13, border: "none" }}
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setEmailPrompt(true)} className="btn" style={{ fontSize: 13 }}>
+                Email the report
+              </button>
+              <button onClick={handleDownload} className="btn btn-primary" style={{ fontSize: 13 }}>
+                <Icon.Doc /> Download PDF
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

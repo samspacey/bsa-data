@@ -115,6 +115,12 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | undefined>();
+  // Total reviews available for this society (populated from the backend's
+  // data_coverage on the first streamed metadata event). Separate from the
+  // 10 snippets returned per turn — surfaced in the header so the user
+  // sees the full corpus size, not the retrieval cap.
+  const [totalReviewsForSociety, setTotalReviewsForSociety] = useState<number | null>(null);
+  const [reportNudgeDismissed, setReportNudgeDismissed] = useState(false);
 
   const reviewRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -174,6 +180,14 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
             }
             return next;
           });
+          // Capture total reviews for the current society from data_coverage
+          const societyCounts = meta.data_coverage?.per_society_review_counts ?? [];
+          const forThisSociety = societyCounts.find(c => c.building_society_id === society.id);
+          if (forThisSociety) {
+            setTotalReviewsForSociety(forThisSociety.review_count);
+          } else if (societyCounts.length > 0) {
+            setTotalReviewsForSociety(societyCounts[0].review_count);
+          }
         },
         onToken: chunk => {
           setMessages(prev => {
@@ -232,6 +246,8 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
 
   const positiveCount = activeSnippets.filter(s => sentimentOf(s) === "positive").length;
   const negativeCount = activeSnippets.filter(s => sentimentOf(s) === "negative").length;
+  const userMessageCount = messages.filter(m => m.role === "user").length;
+  const showReportNudge = userMessageCount >= 2 && !reportNudgeDismissed;
 
   return (
     <div style={{ width: "100%", height: "100vh", background: "var(--paper)", fontFamily: "var(--font-sans)", color: "var(--ink)", display: "flex", flexDirection: "column" }}>
@@ -252,7 +268,9 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
             <Icon.Chart /> Benchmark
           </button>
           <button className="btn" style={{ fontSize: 13, padding: "8px 14px", background: "var(--navy-soft)", borderColor: "var(--navy-soft)", color: "var(--navy)" }}>
-            <Icon.Doc /> {activeSnippets.length} reviews
+            <Icon.Doc /> {totalReviewsForSociety !== null
+              ? `${totalReviewsForSociety.toLocaleString()} reviews`
+              : "reviews"}
           </button>
           <span style={{ width: 1, height: 20, background: "var(--line)" }} />
           <button className="btn" style={{ fontSize: 13, padding: "8px 14px", border: "none" }} onClick={onBack}>
@@ -286,6 +304,38 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
               )}
             </div>
           </div>
+
+          {showReportNudge && (
+            <div style={{ padding: "12px 40px", background: "linear-gradient(to right, var(--coral-soft), #FFFFFF)", borderTop: "1px solid var(--line)" }}>
+              <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--coral)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Icon.Doc width={18} height={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--navy)", letterSpacing: "-0.005em" }}>
+                    Want to take this away?
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 1 }}>
+                    Download the full benchmark report for {society.short} — seven factors vs the sector.
+                  </div>
+                </div>
+                <button
+                  onClick={onOpenBenchmark}
+                  className="btn btn-coral"
+                  style={{ fontSize: 12.5, padding: "8px 14px", flexShrink: 0 }}
+                >
+                  See report <Icon.Arrow width={12} height={12} />
+                </button>
+                <button
+                  onClick={() => setReportNudgeDismissed(true)}
+                  aria-label="Dismiss"
+                  style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, flexShrink: 0 }}
+                >
+                  <Icon.Close width={16} height={16} />
+                </button>
+              </div>
+            </div>
+          )}
 
           <div style={{ padding: "18px 40px 24px", borderTop: "1px solid var(--line)", background: "#FFFFFF" }}>
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
@@ -368,7 +418,9 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--navy)" }}>Evidence</div>
                 <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>
                   {activeSnippets.length > 0
-                    ? `${activeSnippets.length} reviews · informing this answer`
+                    ? totalReviewsForSociety !== null
+                      ? `${activeSnippets.length} of ${totalReviewsForSociety.toLocaleString()} reviews · informing this answer`
+                      : `${activeSnippets.length} reviews · informing this answer`
                     : `Ask a question to see supporting reviews`}
                 </div>
               </div>
