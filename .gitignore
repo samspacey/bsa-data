@@ -29,9 +29,10 @@ env/
 
 # Local data — too large or too dynamic for git.
 # bsa.db (SQLite, ~22MB) IS tracked intentionally for demo reproducibility.
-# LanceDB vectors (~205MB, compacted) ARE tracked so Railway builds work
-# without a separate embedding-rebuild step.
+# LanceDB is NOT uploaded to Railway (too big for CLI upload) — the container
+# generates it from SQLite on first boot into a persistent volume.
 data/db/*.db-journal
+data/db/lancedb/
 data/db/bsa_reviews.db
 # Vercel
 frontend/.vercel/
