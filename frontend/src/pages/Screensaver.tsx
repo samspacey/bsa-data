@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { WoodhurstMark } from "../components/brand/WoodhurstMark";
 import { SocietyLogo } from "../components/brand/SocietyLogo";
 import { Icon } from "../components/brand/Icons";
@@ -196,29 +196,54 @@ interface Props {
   onEnter: () => void;
 }
 
+const BATCH_SIZE = 30;
+const CYCLE_MS = 5500;
+
 export function Screensaver({ onEnter }: Props) {
   const [i, setI] = useState(0);
   const [quotes, setQuotes] = useState<DisplayQuote[]>(fallbackQuotes);
+  const fetchingRef = useRef(false);
 
-  // Fetch real review quotes once on mount. Falls back to hardcoded if the API is down.
-  useEffect(() => {
-    let cancelled = false;
-    fetchFeaturedReviews(12)
-      .then(reviews => {
-        if (cancelled || reviews.length === 0) return;
+  // `/reviews/featured` orders by `func.random()` on the backend so each call
+  // returns a fresh random slice. We fetch BATCH_SIZE, cycle through them,
+  // and refetch another batch when we wrap - giving the screensaver
+  // effectively unbounded variety without ever loading 14k rows at once.
+  const loadBatch = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    try {
+      const reviews = await fetchFeaturedReviews(BATCH_SIZE);
+      if (reviews.length > 0) {
         setQuotes(reviews.map(reviewToDisplay));
-      })
-      .catch(err => console.warn("featured reviews fetch failed", err));
-    return () => {
-      cancelled = true;
-    };
+        setI(0);
+      }
+    } catch (err) {
+      console.warn("featured reviews fetch failed", err);
+    } finally {
+      fetchingRef.current = false;
+    }
   }, []);
+
+  // Initial fetch on mount.
+  useEffect(() => {
+    loadBatch();
+  }, [loadBatch]);
 
   useEffect(() => {
     if (quotes.length === 0) return;
-    const t = setInterval(() => setI(v => (v + 1) % quotes.length), 5500);
+    const t = setInterval(() => {
+      setI(v => {
+        const next = v + 1;
+        // At the end of the current batch, pull a fresh random slice.
+        if (next >= quotes.length) {
+          loadBatch();
+          return 0;
+        }
+        return next;
+      });
+    }, CYCLE_MS);
     return () => clearInterval(t);
-  }, [quotes.length]);
+  }, [quotes.length, loadBatch]);
 
   const q = quotes[i % quotes.length] || fallbackQuotes[0];
   const soc = findSociety(q.societyId);
@@ -337,21 +362,23 @@ export function Screensaver({ onEnter }: Props) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF" }}>{q.who}</div>
                 <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{q.where}</div>
                 {soc && (
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 10, padding: "4px 12px 4px 4px", borderRadius: 999, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>
-                    <SocietyLogo society={soc} size={22} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>{soc.name}</span>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginTop: 12, padding: "6px 16px 6px 6px", borderRadius: 999, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                    <SocietyLogo society={soc} size={36} />
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>{soc.name}</span>
                   </div>
                 )}
               </div>
               <div style={{ display: "flex", gap: 4 }}>
-                {quotes.slice(0, 12).map((_, idx) => (
+                {/* Show up to ~18 dots to represent the current batch without
+                    the row blowing up horizontally on a wide screen. */}
+                {quotes.slice(0, 18).map((_, idx) => (
                   <div
                     key={idx}
                     style={{
-                      width: idx === i % quotes.length ? 22 : 5,
+                      width: idx === i % Math.min(quotes.length, 18) ? 22 : 5,
                       height: 5,
                       borderRadius: 3,
-                      background: idx === i % quotes.length ? "var(--coral)" : "rgba(255,255,255,0.25)",
+                      background: idx === i % Math.min(quotes.length, 18) ? "var(--coral)" : "rgba(255,255,255,0.25)",
                       transition: "all 0.4s",
                     }}
                   />

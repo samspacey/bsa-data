@@ -1,12 +1,51 @@
 """Chat endpoint for the conversational interface."""
 
 import json
+import re
 import time
 import uuid
 from typing import AsyncGenerator, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+
+
+# Keep at most this many previously-cited review IDs per session. Beyond this
+# the oldest are dropped so long conversations don't run out of fresh material.
+_MAX_USED_IDS_PER_SESSION = 50
+_CITE_RE = re.compile(r"\[\[s_(\d+)\]\]")
+
+
+def _extract_cited_review_ids(answer: str, snippets) -> set[int]:
+    """Parse an answer text for [[s_N]] markers and resolve each to the
+    underlying review.id from the snippet list we passed to the model.
+    """
+    out: set[int] = set()
+    for m in _CITE_RE.finditer(answer):
+        idx = int(m.group(1))
+        if 0 <= idx < len(snippets):
+            try:
+                out.add(int(snippets[idx].snippet_id))
+            except (ValueError, AttributeError):
+                continue
+    return out
+
+
+def _record_used_ids(session: dict, newly_cited: set[int]) -> None:
+    """Append newly-cited review IDs to session history; evict oldest if capped."""
+    history: list[int] = session.get("used_review_ids_order") or []
+    seen: set[int] = set(session.get("used_review_ids") or [])
+    for rid in newly_cited:
+        if rid in seen:
+            continue
+        history.append(rid)
+        seen.add(rid)
+    # FIFO eviction
+    while len(history) > _MAX_USED_IDS_PER_SESSION:
+        dropped = history.pop(0)
+        seen.discard(dropped)
+    session["used_review_ids_order"] = history
+    session["used_review_ids"] = list(seen)
 
 from src.config.societies import SOCIETY_BY_ID
 from src.data.database import get_engine, get_session
@@ -39,6 +78,11 @@ def get_session_state(session_id: Optional[str]) -> dict:
         "id": new_id,
         "previous_intent": None,
         "turn_count": 0,
+        # Review.id values that previous answers in this session cited. Passed
+        # to retrieval as an exclusion set so the same reviews don't keep
+        # appearing turn after turn.
+        "used_review_ids": [],
+        "used_review_ids_order": [],
     }
     return _sessions[new_id]
 
@@ -86,7 +130,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
             retrieval = RetrievalService(db_session, vector_index)
 
             metrics = retrieval.get_metrics(intent)
-            snippets = await retrieval.get_evidence_snippets(intent, limit=10)
+            excluded_ids: set[int] = set(session.get("used_review_ids") or [])
+            snippets = await retrieval.get_evidence_snippets(
+                intent, limit=10, exclude_review_ids=excluded_ids
+            )
             coverage = retrieval.get_data_coverage(intent)
 
         if not metrics and not snippets:
@@ -103,6 +150,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
                 society_name=society_name,
                 persona=persona,
             )
+
+        # Record which reviews this turn cited so next turn avoids them.
+        _record_used_ids(session, _extract_cited_review_ids(answer, snippets))
 
         assumptions: list[str] = []
         limitations = []
@@ -186,7 +236,10 @@ async def chat_stream(request: ChatRequest, http_request: Request):
             retrieval = RetrievalService(db_session, vector_index)
 
             metrics = retrieval.get_metrics(intent)
-            snippets = await retrieval.get_evidence_snippets(intent, limit=10)
+            excluded_ids: set[int] = set(session.get("used_review_ids") or [])
+            snippets = await retrieval.get_evidence_snippets(
+                intent, limit=10, exclude_review_ids=excluded_ids
+            )
             coverage = retrieval.get_data_coverage(intent)
 
             limitations: list[str] = []
@@ -233,6 +286,10 @@ async def chat_stream(request: ChatRequest, http_request: Request):
                 persona=persona,
             )
             yield _sse("followups", {"followups": followups}).encode("utf-8")
+
+        # Record which reviews this answer actually cited so next turn
+        # excludes them from retrieval.
+        _record_used_ids(session, _extract_cited_review_ids(accumulated, snippets))
 
         # Log completion with response stats (outside the DB session so a
         # failure to log doesn't roll back the chat session update).

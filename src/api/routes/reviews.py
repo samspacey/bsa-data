@@ -211,6 +211,43 @@ def _infer_sentiment(rating: int) -> str:
     return "very_negative"
 
 
+# Strong sentiment words that clearly contradict the rating. We only flip
+# the label when the body unambiguously signals the opposite direction.
+_NEGATIVE_SIGNALS = (
+    "terrible", "awful", "useless", "worst", "rubbish", "appalling",
+    "disgraceful", "disgusting", " avoid ", "avoid at", "avoid them",
+    "scam", "horrible", "shambles", "shameful", "disaster", "diabolical",
+    "hate ", "hated ", "shocking", "atrocious", "ripoff", "rip off",
+)
+_POSITIVE_SIGNALS = (
+    "excellent", "brilliant", "fantastic", "amazing", "outstanding",
+    "superb", "wonderful", "exceptional", "best bank", "best building society",
+    "highly recommend", "love this", "love the", "couldn't be happier",
+    "cannot fault",
+)
+
+
+def _apply_sentiment_override(label: str, body: str) -> str:
+    """Override a clearly-wrong sentiment label when the body text disagrees.
+
+    Keeps conservative: only flips when there's a strong keyword signal. Avoids
+    turning "not terrible" into negative by requiring the raw substring - most
+    false negatives of that shape are rare in the corpus.
+    """
+    if not body:
+        return label
+
+    body_lower = body.lower()
+    has_negative = any(sig in body_lower for sig in _NEGATIVE_SIGNALS)
+    has_positive = any(sig in body_lower for sig in _POSITIVE_SIGNALS)
+
+    if label in ("positive", "very_positive") and has_negative and not has_positive:
+        return "negative"
+    if label in ("negative", "very_negative") and has_positive and not has_negative:
+        return "positive"
+    return label
+
+
 @router.get("/by-society/{society_id}", response_model=list[SocietyReview])
 async def reviews_by_society(society_id: str, limit: int = 300) -> list[SocietyReview]:
     """Return up to ``limit`` real reviews for a single building society.
@@ -263,6 +300,11 @@ async def reviews_by_society(society_id: str, limit: int = 300) -> list[SocietyR
                 if not body:
                     continue
                 sentiment = enriched_sent or _infer_sentiment(r.rating_raw)
+                # Safety net: if the label (enriched OR inferred) clearly
+                # contradicts strong keywords in the body, flip it. Catches
+                # 5-star ratings on "terrible app" bodies that otherwise slip
+                # through as "very_positive".
+                sentiment = _apply_sentiment_override(sentiment, body)
                 results.append(
                     SocietyReview(
                         id=r.id,

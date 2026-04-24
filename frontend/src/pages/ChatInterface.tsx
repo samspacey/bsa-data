@@ -157,27 +157,53 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
     return [];
   }, [messages]);
 
-  // Split the full society corpus into Referenced + Other. If the society
-  // reviews haven't loaded yet OR the cited review isn't in the 300-row
-  // window we fetched (older reviews), append the active snippet inline so
-  // the UI never shows a broken "Review #N" that points nowhere.
+  // Latest assistant message's accumulated text - what the model actually said,
+  // including [[s_N]] citation markers. Empty string during streaming until
+  // tokens land.
+  const latestAssistantText = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === "assistant") return m.text || "";
+    }
+    return "";
+  }, [messages]);
+
+  // Parse [[s_N]] markers in the latest answer and keep only the UNIQUE
+  // snippet indices that were actually cited. That way the "Referenced"
+  // section mirrors the pills in the chat bubble - not every snippet the
+  // model received.
+  const citedSnippetIndices = useMemo(() => {
+    const seen = new Set<number>();
+    const ordered: number[] = [];
+    for (const m of latestAssistantText.matchAll(/\[\[s_(\d+)\]\]/g)) {
+      const n = parseInt(m[1], 10);
+      if (Number.isNaN(n) || n < 0 || n >= activeSnippets.length) continue;
+      if (seen.has(n)) continue;
+      seen.add(n);
+      ordered.push(n);
+    }
+    return ordered;
+  }, [latestAssistantText, activeSnippets.length]);
+
+  // Split the full society corpus into Referenced + Other. Referenced = the
+  // snippets the model actually cited in the latest answer. Everything else
+  // in `societyReviews` goes in Other. If a cited review is outside the
+  // 300-row fetch window, synthesise a card so the panel never dead-links.
   const { referencedReviews, otherReviews } = useMemo(() => {
     const byId = new Map<number, SocietyReview>();
     for (const r of societyReviews) byId.set(r.id, r);
 
     const ref: SocietyReview[] = [];
     const refIdsSet = new Set<number>();
-    for (const snippet of activeSnippets) {
+    for (const snippetIdx of citedSnippetIndices) {
+      const snippet = activeSnippets[snippetIdx];
+      if (!snippet) continue;
       const n = parseInt(snippet.snippet_id, 10);
-      if (Number.isNaN(n)) continue;
+      if (Number.isNaN(n) || refIdsSet.has(n)) continue;
       const found = byId.get(n);
       if (found) {
         ref.push(found);
-        refIdsSet.add(n);
       } else {
-        // Synthesize a SocietyReview from the snippet so the panel always
-        // shows the referenced card, even for reviews outside the 300-row
-        // most-recent window.
         ref.push({
           id: n,
           snippet_id: snippet.snippet_id,
@@ -191,12 +217,12 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
           sentiment_label: snippet.sentiment_label,
           source_url: snippet.source_url ?? null,
         });
-        refIdsSet.add(n);
       }
+      refIdsSet.add(n);
     }
     const other = societyReviews.filter(r => !refIdsSet.has(r.id));
     return { referencedReviews: ref, otherReviews: other };
-  }, [societyReviews, activeSnippets]);
+  }, [societyReviews, activeSnippets, citedSnippetIndices]);
 
   const contextByPersona: Record<string, string> = {
     loyalist: "A simulated Loyalist member · 30+ years · values branch relationships · low digital trust",
@@ -497,13 +523,14 @@ export function ChatInterface({ society, persona, onBack, onOpenBenchmark }: Pro
                     {referencedReviews.length}
                   </span>
                 </div>
-                {referencedReviews.map(r => (
+                {referencedReviews.map((r, i) => (
                   <ReviewCard
                     key={`ref-${r.id}`}
                     review={r}
                     referenced
                     highlighted={highlighted === r.id}
                     refCb={el => { reviewRefs.current[r.id] = el; }}
+                    displayNumber={i + 1}
                   />
                 ))}
               </>
@@ -565,6 +592,18 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
     return Number.isNaN(n) ? null : n;
   };
 
+  // Assign each VALID, UNIQUE citation in this message a sequential display
+  // number so the user sees [1], [2], ... regardless of raw snippet index.
+  // Same mapping is used for the "INFORMED BY" pills so numbers line up.
+  const displayNumberByIndex = new Map<number, number>();
+  let nextDisplayNum = 1;
+  for (const p of parts) {
+    if (p.kind !== "cite") continue;
+    if (!snippets[p.index]) continue; // invalid/missing snippet: skip
+    if (displayNumberByIndex.has(p.index)) continue;
+    displayNumberByIndex.set(p.index, nextDisplayNum++);
+  }
+
   // Collect unique citation indices referenced in this message, in order of appearance
   const seen = new Set<number>();
   const citedIndices: number[] = [];
@@ -601,13 +640,18 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
           {parts.map((p, i) => {
             if (p.kind === "text") return <span key={i}>{p.value}</span>;
             const snippet = snippets[p.index];
-            const short = snippet ? shortSourceName(snippet.source) : `ref ${p.index + 1}`;
+            // Defensive: if backend sanitisation ever misses an invalid index,
+            // drop the superscript entirely rather than render a dead link.
+            // This keeps superscripts and pills in one-to-one correspondence.
+            if (!snippet) return null;
+            const short = shortSourceName(snippet.source);
             const reviewId = reviewIdFor(p.index);
+            const displayNum = displayNumberByIndex.get(p.index) ?? (p.index + 1);
             return (
               <sup key={i} style={{ marginLeft: 2 }}>
                 <button
                   onClick={() => { if (reviewId !== null) onCiteClick(reviewId); }}
-                  title={snippet ? `${short} · ${formatReviewDate(snippet.review_date)}` : `Reference ${p.index + 1}`}
+                  title={`${short} · ${formatReviewDate(snippet.review_date)}`}
                   style={{
                     padding: "1px 6px",
                     borderRadius: 6,
@@ -620,7 +664,7 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
                     cursor: "pointer",
                   }}
                 >
-                  {p.index + 1}
+                  {displayNum}
                 </button>
               </sup>
             );
@@ -637,6 +681,7 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
               const s = snippets[idx];
               if (!s) return null;
               const reviewId = reviewIdFor(idx);
+              const displayNum = displayNumberByIndex.get(idx) ?? (idx + 1);
               const isPos = sentimentOf(s) === "positive";
               const isNeg = sentimentOf(s) === "negative";
               return (
@@ -659,7 +704,7 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
                   }}
                 >
                   <Icon.Dot />
-                  Review #{idx + 1} · {shortSourceName(s.source)}
+                  Review #{displayNum} · {shortSourceName(s.source)}
                   <span style={{ opacity: 0.6, fontWeight: 500 }}>· {formatReviewDate(s.review_date)}</span>
                 </button>
               );
@@ -677,9 +722,11 @@ interface ReviewCardProps {
   referenced: boolean;
   highlighted: boolean;
   refCb: (el: HTMLDivElement | null) => void;
+  /** Citation order number (1, 2, ...) shown on referenced cards only. */
+  displayNumber?: number;
 }
 
-function ReviewCard({ review, referenced, highlighted, refCb }: ReviewCardProps) {
+function ReviewCard({ review, referenced, highlighted, refCb, displayNumber }: ReviewCardProps) {
   const sentiment = sentimentOf(review);
   const sentimentColor =
     sentiment === "positive" ? "var(--positive)" : sentiment === "negative" ? "var(--coral)" : "var(--line-2)";
@@ -737,7 +784,7 @@ function ReviewCard({ review, referenced, highlighted, refCb }: ReviewCardProps)
             borderRadius: 4,
           }}
         >
-          #{review.id} · {sentiment.toUpperCase()}
+          {displayNumber !== undefined ? `REVIEW #${displayNumber} · ` : ""}{sentiment.toUpperCase()}
         </span>
         <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
           {review.rating}/5 · {formatReviewDate(review.review_date)}

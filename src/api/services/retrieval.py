@@ -114,12 +114,16 @@ class RetrievalService:
         self,
         intent: QueryIntent,
         limit: int = 10,
+        exclude_review_ids: Optional[set[int]] = None,
     ) -> list[ReviewSnippet]:
         """Get evidence snippets using semantic search.
 
         Requires an OpenAI key (embeddings provider). If the key is missing or
         the embedding call fails, returns an empty list so the rest of the
         chat flow (metrics + coverage) still completes.
+
+        ``exclude_review_ids`` removes previously-cited reviews from the
+        result so successive turns surface fresh material.
         """
         # Short-circuit if OpenAI key is absent - evidence retrieval depends
         # on OpenAI embeddings regardless of which LLM drives the chat answer.
@@ -162,17 +166,25 @@ class RetrievalService:
         elif intent.sentiment_focus == "mostly_positive":
             sentiment_labels = ["positive", "very_positive"]
 
-        # Search vector index
+        # Search vector index. Widen the pool so we have room to drop
+        # already-cited reviews without running out of top matches.
         society_ids = intent.primary_building_societies + intent.comparison_building_societies
+        search_cap = max(limit * 4, (limit * 2) + len(exclude_review_ids or set()))
         results = self.vector_index.search(
             query_vector=query_vector,
-            limit=limit * 2,  # Get more to allow for filtering
+            limit=search_cap,
             building_society_ids=society_ids if society_ids else None,
             start_date=intent.timeframe_start,
             end_date=intent.timeframe_end,
             sentiment_labels=sentiment_labels,
             aspects=intent.focus_areas if intent.focus_areas else None,
         )
+
+        # Drop already-cited reviews so consecutive turns get fresh material.
+        if exclude_review_ids:
+            results = [r for r in results if r.get("id") not in exclude_review_ids]
+        # Truncate after filtering.
+        results = results[:limit]
 
         # Bulk-lookup source_urls for the retrieved review IDs in one query
         review_ids = [result.get("id") for result in results[:limit] if result.get("id") is not None]
