@@ -41,14 +41,19 @@ RUN pip install --no-cache-dir \
         "tenacity>=8.2.0" \
         "weasyprint>=60.0"
 
-# Code + pre-built SQLite (contains the ~14.9k enriched reviews). The
-# LanceDB vector index is generated from SQLite on first boot into a
-# persistent Railway volume mounted at /app/data/db/lancedb.
+# Code + pre-built SQLite (contains the ~14.9k enriched reviews + 16+
+# analytics events including captured leads). The Railway volume is
+# mounted at /app/data/db, which shadows the bsa.db that was COPY'd in.
+# We keep a seed copy at /app/data-seed/bsa.db so the entrypoint can
+# hydrate the empty volume on first boot. The LanceDB vector index is
+# generated from SQLite on first boot into the same volume.
 COPY src /app/src
 COPY data /app/data
 COPY scripts /app/scripts
 COPY docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh \
+    && mkdir -p /app/data-seed \
+    && cp /app/data/db/bsa.db /app/data-seed/bsa.db
 
 ENV PORT=8000
 EXPOSE 8000
