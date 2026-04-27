@@ -31,7 +31,12 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 
 
 class Lead(BaseModel):
-    """One person who asked for a benchmark report."""
+    """One person who asked for a benchmark report.
+
+    ``status`` is "pending" until at least one send succeeds, then "sent".
+    A previously-failed attempt is still "pending" - check ``last_error``
+    to see why the last attempt didn't go through.
+    """
 
     email: str
     society_id: Optional[str] = None
@@ -41,7 +46,7 @@ class Lead(BaseModel):
     last_attempt_at: Optional[datetime] = None
     sent_at: Optional[datetime] = None
     last_error: Optional[str] = None
-    status: str  # "pending" | "sent" | "failed"
+    status: str  # "pending" | "sent"
     attempts: int = 0
 
 
@@ -141,9 +146,10 @@ def _collect_leads(window_days: int = 365) -> list[Lead]:
         elif ev.event_type == "report_email_failed":
             slot["last_attempt_at"] = ev.created_at
             slot["last_error"] = payload.get("error") or "send failed"
-            # Only mark as failed if we never successfully sent.
-            if slot["status"] != "sent":
-                slot["status"] = "failed"
+            # Don't transition to "failed" - we treat failed-but-not-yet-sent
+            # as "pending" so the marketer's mental model ("who do I still
+            # owe an email to?") matches what /leads?status=pending returns.
+            # The last_error field still reveals the previous failure.
 
     leads: list[Lead] = []
     for (email, society_id), v in grouped.items():
