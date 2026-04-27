@@ -133,5 +133,21 @@ export interface SocietyReview {
   source_url?: string | null;
 }
 
+export interface BenchmarkScore {
+  factor: string;
+  score: number;
+  avg: number;
+  rank: number;
+  reviews: number;
+  status: "above" | "near" | "below";
+}
+
+export interface BenchmarkScoresResponse {
+  society_id: string;
+  society_name: string;
+  scores: BenchmarkScore[];
+  of_total: number;
+}
+
 // Re-export ChatResponse for components that import from client.ts
 export type { ChatResponse as ChatResponseType };

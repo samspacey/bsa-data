@@ -1,34 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "../components/brand/Icons";
 import { trackEvent, getSessionId } from "../api/analytics";
-import { emailReport, reportPdfUrl } from "../api/client";
+import { emailReport, fetchBenchmarkScores, reportPdfUrl } from "../api/client";
+import type { BenchmarkScore } from "../api/types";
 import type { Society } from "../data/societies";
 
-interface Score {
-  factor: string;
-  score: number;
-  avg: number;
-  rank: number;
-  reviews: number;
-  status: "above" | "near" | "below";
-}
+// Conservative fallback shown only if the API call fails. The real scores
+// are fetched live from /report/scores so each society gets its own.
+const FALLBACK_SCORES: BenchmarkScore[] = [
+  { factor: "Customer Service",    score: 0, avg: 0, rank: 0, reviews: 0, status: "near" },
+  { factor: "Digital Experience",  score: 0, avg: 0, rank: 0, reviews: 0, status: "near" },
+  { factor: "Branch Experience",   score: 0, avg: 0, rank: 0, reviews: 0, status: "near" },
+  { factor: "Mortgage Products",   score: 0, avg: 0, rank: 0, reviews: 0, status: "near" },
+  { factor: "Savings Rates",       score: 0, avg: 0, rank: 0, reviews: 0, status: "near" },
+  { factor: "Communication",       score: 0, avg: 0, rank: 0, reviews: 0, status: "near" },
+  { factor: "Local Community",     score: 0, avg: 0, rank: 0, reviews: 0, status: "near" },
+];
 
 interface Props {
   society: Society;
   onClose: () => void;
 }
 
-const scores: Score[] = [
-  { factor: "Customer Service",    score: 8.2, avg: 7.1, rank: 9,  reviews: 142, status: "above" },
-  { factor: "Digital Experience",  score: 5.1, avg: 6.8, rank: 34, reviews: 89,  status: "below" },
-  { factor: "Branch Experience",   score: 9.1, avg: 7.3, rank: 3,  reviews: 76,  status: "above" },
-  { factor: "Mortgage Products",   score: 6.9, avg: 7.0, rank: 21, reviews: 58,  status: "near" },
-  { factor: "Savings Rates",       score: 6.2, avg: 7.2, rank: 29, reviews: 94,  status: "below" },
-  { factor: "Communication",       score: 7.4, avg: 7.1, rank: 14, reviews: 61,  status: "near" },
-  { factor: "Local Community",     score: 9.4, avg: 6.9, rank: 2,  reviews: 43,  status: "above" },
-];
-
-const statusMap: Record<Score["status"], { color: string; soft: string; label: string; bar: string }> = {
+const statusMap: Record<BenchmarkScore["status"], { color: string; soft: string; label: string; bar: string }> = {
   above: { color: "var(--positive)", soft: "var(--positive-soft)", label: "Above avg", bar: "var(--positive)" },
   near:  { color: "var(--warning)",  soft: "var(--warning-soft)",  label: "Near avg",  bar: "var(--warning)" },
   below: { color: "var(--coral-2)",  soft: "var(--coral-soft)",    label: "Below avg", bar: "var(--coral)" },
@@ -65,6 +59,34 @@ export function BenchmarkModal({ society, onClose }: Props) {
   const [emailPrompt, setEmailPrompt] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [scores, setScores] = useState<BenchmarkScore[] | null>(null);
+  const [ofTotal, setOfTotal] = useState<number>(42);
+  const [scoresError, setScoresError] = useState<string | null>(null);
+
+  // Fetch bespoke scores for this society on open. The backend computes
+  // them live from sentiment_aspect data so each society's report is
+  // genuinely different.
+  useEffect(() => {
+    let cancelled = false;
+    setScores(null);
+    setScoresError(null);
+    fetchBenchmarkScores(society.id)
+      .then(res => {
+        if (cancelled) return;
+        setOfTotal(res.of_total);
+        setScores(res.scores.length > 0 ? res.scores : FALLBACK_SCORES);
+        if (res.scores.length === 0) {
+          setScoresError("No enrichment data for this society yet.");
+        }
+      })
+      .catch(err => {
+        if (cancelled) return;
+        console.warn("benchmark scores fetch failed", err);
+        setScores(FALLBACK_SCORES);
+        setScoresError("Couldn't load live scores. Showing placeholders.");
+      });
+    return () => { cancelled = true; };
+  }, [society.id]);
 
   const handleDownload = () => {
     trackEvent("report_downloaded", { societyId: society.id });
@@ -163,23 +185,52 @@ export function BenchmarkModal({ society, onClose }: Props) {
           </button>
         </div>
 
-        <div style={{ padding: "20px 36px", background: "var(--navy-bg)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24, borderBottom: "1px solid var(--line)" }}>
-          {[
-            { label: "Overall position", v: "3 strengths · 2 gaps", sub: "of 7 factors", color: "var(--navy)" },
-            { label: "Top strength", v: "Local Community", sub: "9.4 · 2nd of 42", color: "var(--positive)" },
-            { label: "Biggest gap", v: "Digital Experience", sub: "5.1 · 34th of 42", color: "var(--coral-2)" },
-          ].map((s, i) => (
-            <div key={i} style={{ borderLeft: i > 0 ? "1px solid var(--line)" : "none", paddingLeft: i > 0 ? 20 : 0 }}>
-              <div className="eyebrow" style={{ color: s.color, marginBottom: 6 }}>{s.label}</div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "var(--navy)", letterSpacing: "-0.015em" }}>{s.v}</div>
-              <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>{s.sub}</div>
+        {(() => {
+          const ready = scores ?? [];
+          const above = ready.filter(s => s.status === "above");
+          const below = ready.filter(s => s.status === "below");
+          const top = [...above].sort((a, b) => b.score - a.score)[0];
+          const gap = [...below].sort((a, b) => a.score - b.score)[0];
+          const summaryItems = [
+            {
+              label: "Overall position",
+              v: ready.length === 0 ? "Loading..." : `${above.length} ${above.length === 1 ? "strength" : "strengths"} · ${below.length} ${below.length === 1 ? "gap" : "gaps"}`,
+              sub: `of ${ready.length || 7} factors`,
+              color: "var(--navy)",
+            },
+            top
+              ? { label: "Top strength", v: top.factor, sub: `${top.score.toFixed(1)} · ${ord(top.rank)} of ${ofTotal}`, color: "var(--positive)" }
+              : { label: "Top strength", v: ready.length === 0 ? "—" : "None above avg", sub: "", color: "var(--ink-3)" },
+            gap
+              ? { label: "Biggest gap", v: gap.factor, sub: `${gap.score.toFixed(1)} · ${ord(gap.rank)} of ${ofTotal}`, color: "var(--coral-2)" }
+              : { label: "Biggest gap", v: ready.length === 0 ? "—" : "None below avg", sub: "", color: "var(--ink-3)" },
+          ];
+          return (
+            <div style={{ padding: "20px 36px", background: "var(--navy-bg)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24, borderBottom: "1px solid var(--line)" }}>
+              {summaryItems.map((s, i) => (
+                <div key={i} style={{ borderLeft: i > 0 ? "1px solid var(--line)" : "none", paddingLeft: i > 0 ? 20 : 0 }}>
+                  <div className="eyebrow" style={{ color: s.color, marginBottom: 6 }}>{s.label}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: "var(--navy)", letterSpacing: "-0.015em" }}>{s.v}</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 3 }}>{s.sub}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
 
         <div style={{ flex: 1, overflow: "auto", padding: "24px 36px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-            {scores.map(s => {
+            {scores === null && (
+              <div style={{ padding: "40px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+                Computing benchmark for {society.short}...
+              </div>
+            )}
+            {scoresError && scores !== null && (
+              <div style={{ padding: "8px 14px", background: "var(--paper-2)", borderRadius: 8, color: "var(--ink-3)", fontSize: 12 }}>
+                {scoresError}
+              </div>
+            )}
+            {(scores ?? []).map(s => {
               const st = statusMap[s.status];
               const pct = (s.score / 10) * 100;
               const avgPct = (s.avg / 10) * 100;

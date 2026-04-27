@@ -1,4 +1,4 @@
-"""Benchmark report endpoints: PDF download + PDF-attached email send."""
+"""Benchmark report endpoints: PDF download + PDF-attached email send + scores JSON."""
 
 from __future__ import annotations
 
@@ -19,7 +19,13 @@ from src.api.services.pdf_report import (
     ReportScore,
     render_report_pdf,
 )
+from src.api.services.scores import (
+    FACTOR_ASPECTS,
+    ScoreRow,
+    compute_society_scores,
+)
 from src.config.societies import SOCIETY_BY_ID
+from src.data.database import get_engine, get_session
 
 
 router = APIRouter(prefix="/report", tags=["report"])
@@ -30,20 +36,50 @@ def _safe_filename(society_name: str) -> str:
     return f"benchmark-{slug}-{date.today().isoformat()}.pdf"
 
 
+def _scores_for_pdf(society_id: str) -> Optional[list[ReportScore]]:
+    """Compute bespoke per-society scores and adapt to the PDF's ReportScore shape."""
+    try:
+        engine = get_engine()
+        with get_session(engine) as session:
+            rows = compute_society_scores(session, society_id)
+        if not rows:
+            return None
+        return [
+            ReportScore(
+                factor=r.factor,
+                score=r.score,
+                avg=r.avg,
+                rank=r.rank,
+                status=r.status,
+            )
+            for r in rows
+        ]
+    except Exception as e:  # noqa: BLE001
+        print(f"score computation failed for {society_id}: {e}")
+        return None
+
+
 def _pdf_for_society(society_id: str, region: Optional[str] = None) -> tuple[bytes, str, str]:
     """Render the PDF for a given society. Returns (pdf_bytes, filename, society_name).
 
     ``region`` is passed from the frontend (where the Society type has it);
     the backend config doesn't store it so we accept it as an override.
+
+    Scores are computed live from sentiment_aspect data so each society's
+    PDF is bespoke. Falls back to the static demo scores only if computation
+    fails entirely (e.g. empty enrichment table on a fresh deploy).
     """
     society = SOCIETY_BY_ID.get(society_id)
     if society is None:
         raise HTTPException(status_code=404, detail=f"Unknown society: {society_id}")
 
+    scores = _scores_for_pdf(society_id) or DEFAULT_SCORES
+
     try:
         pdf_bytes = render_report_pdf(
             society_name=society.canonical_name,
             society_region=region or "",
+            scores=scores,
         )
     except RuntimeError as e:
         # WeasyPrint missing in the environment.
@@ -53,6 +89,57 @@ def _pdf_for_society(society_id: str, region: Optional[str] = None) -> tuple[byt
 
     filename = _safe_filename(society.canonical_name)
     return pdf_bytes, filename, society.canonical_name
+
+
+class ScoreOut(BaseModel):
+    factor: str
+    score: float
+    avg: float
+    rank: int
+    reviews: int
+    status: str
+
+
+class ScoresResponse(BaseModel):
+    society_id: str
+    society_name: str
+    scores: list[ScoreOut]
+    of_total: int  # how many societies the rank is out of
+
+
+@router.get("/scores", response_model=ScoresResponse)
+async def get_report_scores(society_id: str = Query(...)) -> ScoresResponse:
+    """Return the 7-factor benchmark scores for a society, computed live
+    from sentiment_aspect data (not hardcoded)."""
+    society = SOCIETY_BY_ID.get(society_id)
+    if society is None:
+        raise HTTPException(status_code=404, detail=f"Unknown society: {society_id}")
+
+    engine = get_engine()
+    with get_session(engine) as session:
+        rows = compute_society_scores(session, society_id) or []
+        # `of_total` is the population size used for ranking - report it to
+        # the frontend so it can render "12th of 41" honestly.
+        from src.api.services.scores import compute_all_society_scores
+        all_scores = compute_all_society_scores(session)
+        of_total = len(all_scores) or 42
+
+    if not rows:
+        # Society has no enrichment data at all - return empty list and let
+        # the frontend show a sensible fallback.
+        return ScoresResponse(
+            society_id=society_id,
+            society_name=society.canonical_name,
+            scores=[],
+            of_total=of_total,
+        )
+
+    return ScoresResponse(
+        society_id=society_id,
+        society_name=society.canonical_name,
+        scores=[ScoreOut(**r.__dict__) for r in rows],
+        of_total=of_total,
+    )
 
 
 @router.get("/pdf")

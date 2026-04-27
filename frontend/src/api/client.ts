@@ -163,6 +163,12 @@ export async function fetchSocietyReviews(societyId: string, limit = 300) {
   return response.json() as Promise<import("./types").SocietyReview[]>;
 }
 
+export async function fetchBenchmarkScores(societyId: string) {
+  const response = await fetch(apiUrl(`/report/scores?society_id=${societyId}`));
+  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  return response.json() as Promise<import("./types").BenchmarkScoresResponse>;
+}
+
 /**
  * Direct URL for the PDF download. Browser navigates here (or follows a
  * link with `download` attr) to trigger a file download, rather than a
