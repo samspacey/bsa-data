@@ -12,10 +12,35 @@ files need to be bundled in the container.
 
 from __future__ import annotations
 
+import base64
 import html
 from dataclasses import dataclass
 from datetime import date
+from functools import lru_cache
+from pathlib import Path
 from typing import Optional
+
+
+# The Woodhurst PNG ships in src/api/services/assets/ so it gets included in
+# the Docker image's `COPY src /app/src` instruction. Loaded once and base64-
+# encoded into a data URI so WeasyPrint embeds it directly without needing
+# network access or a working file URL inside the container.
+_LOGO_PATH = Path(__file__).parent / "assets" / "woodhurst-mark.png"
+
+
+@lru_cache(maxsize=1)
+def _logo_data_uri() -> str:
+    """Return the Woodhurst logo as a `data:image/png;base64,...` URI.
+
+    Cached so we only read + encode the file once per process. Falls back to
+    an empty string if the asset is missing - the layout still renders, just
+    without the logo image.
+    """
+    try:
+        b = _LOGO_PATH.read_bytes()
+        return "data:image/png;base64," + base64.b64encode(b).decode("ascii")
+    except FileNotFoundError:
+        return ""
 
 
 @dataclass
@@ -61,6 +86,8 @@ def _render_html(
     scores: list[ReportScore],
     recommendations: list[str],
     generated_on: date,
+    quote: str,
+    quote_source: str,
 ) -> str:
     """Build the full HTML document for WeasyPrint."""
 
@@ -82,6 +109,7 @@ def _render_html(
     )
 
     today_str = generated_on.strftime("%-d %B %Y")
+    logo_uri = _logo_data_uri()
 
     # Rows of the scores table. Inline bars drawn via CSS widths.
     rows_html: list[str] = []
@@ -164,7 +192,14 @@ html, body {{
   font-size: 16px; font-weight: 800; color: #1E205F; letter-spacing: -0.015em;
 }}
 .mark-icon {{
-  width: 20px; height: 20px; display: inline-block;
+  display: inline-block; line-height: 0;
+}}
+.mark-icon img {{
+  height: 24px; width: auto; display: block;
+}}
+.mark-text {{
+  font-family: 'Montserrat', Arial, sans-serif;
+  font-size: 16px; font-weight: 800; color: #1E205F; letter-spacing: -0.015em;
 }}
 .dateline {{ text-align: right; font-size: 10px; color: #6B6E95; }}
 .dateline .title {{ font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #1E205F; letter-spacing: 0.06em; text-transform: uppercase; }}
@@ -272,12 +307,8 @@ table.scores td.status {{ text-align: center; }}
     <div class="masthead">
       <div class="mark">
         <span class="mark-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
-            <path d="M2 6 L7 18 L10 10 L14 18 L19 6 L16 6 L14 12 L11 4 L9 4 L7 12 L5 6 Z" fill="#1E205F"/>
-            <circle cx="21.5" cy="6" r="1.5" fill="#FF5773"/>
-          </svg>
+          {f'<img src="{logo_uri}" alt="Woodhurst">' if logo_uri else '<span class="mark-text">Woodhurst</span>'}
         </span>
-        <span>Woodhurst</span>
       </div>
       <div class="dateline">
         <div class="title">MEMBER EXPERIENCE BENCHMARK</div>
@@ -326,8 +357,8 @@ table.scores td.status {{ text-align: center; }}
     <div class="quote-recs">
       <div class="quote">
         <div class="mark-quote">&ldquo;</div>
-        <p>Members value the branch relationships most. Loyalty rates could be sharper.</p>
-        <div class="attribution">Composite quote drawn from recent member reviews</div>
+        <p>{html.escape(quote)}</p>
+        <div class="attribution">{html.escape(quote_source)}</div>
       </div>
       <div class="recs">
         <div class="eyebrow" style="margin-bottom: 10px;">Recommended focus</div>
@@ -352,6 +383,12 @@ DEFAULT_RECOMMENDATIONS = [
     "Lead communications with community narrative, it is your most under-expressed strength.",
 ]
 
+# Used only when the route can't pull a real quote (e.g. no enrichment yet).
+DEFAULT_QUOTE = (
+    "Members value the branch relationships most. Loyalty rates could be sharper."
+)
+DEFAULT_QUOTE_SOURCE = "Composite quote drawn from recent member reviews"
+
 
 def render_report_pdf(
     society_name: str,
@@ -359,8 +396,16 @@ def render_report_pdf(
     scores: Optional[list[ReportScore]] = None,
     recommendations: Optional[list[str]] = None,
     generated_on: Optional[date] = None,
+    quote: Optional[str] = None,
+    quote_source: Optional[str] = None,
 ) -> bytes:
     """Render the benchmark report as PDF bytes.
+
+    ``quote`` / ``quote_source`` should be supplied by the caller from
+    ``report_narrative.pick_representative_quote()`` so each society's PDF
+    quotes a real review from that society's corpus rather than the same
+    composite line. Falls back to the generic composite if the caller passes
+    ``None`` (e.g. the society has no enrichment data yet).
 
     Raises RuntimeError if WeasyPrint isn't installed in the environment
     (the Docker image installs it; local dev might not).
@@ -378,5 +423,7 @@ def render_report_pdf(
         scores=scores or DEFAULT_SCORES,
         recommendations=recommendations or DEFAULT_RECOMMENDATIONS,
         generated_on=generated_on or date.today(),
+        quote=quote or DEFAULT_QUOTE,
+        quote_source=quote_source or DEFAULT_QUOTE_SOURCE,
     )
     return HTML(string=html_doc).write_pdf()

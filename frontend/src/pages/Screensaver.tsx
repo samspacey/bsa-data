@@ -275,18 +275,23 @@ export function Screensaver({ onEnter }: Props) {
         </div>
       </div>
 
-      <div style={{ padding: "min(18vh, 180px) clamp(32px, 6vw, 96px) 0", display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: 72, alignItems: "start", position: "relative", zIndex: 2 }}>
+      {/* Bottom padding (108px) leaves clearance for the absolutely-positioned
+          marquee at the bottom (~72px tall once you account for borders + the
+          "EST · 1853" line height) plus a breathing buffer. Vertical rhythm
+          inside the left column is vh-aware so the H1, paragraph and pill
+          compress on short viewports instead of slipping into the marquee. */}
+      <div style={{ padding: "min(14vh, 160px) clamp(32px, 6vw, 96px) 108px", display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: 72, alignItems: "start", position: "relative", zIndex: 2 }}>
         <div>
-          <div className="eyebrow" style={{ color: "var(--coral)", marginBottom: 32 }}>BSA Member Chat · by Woodhurst</div>
-          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(56px, 8vw, 112px)", lineHeight: 0.94, fontWeight: 800, letterSpacing: "-0.04em", margin: 0, color: "#FFFFFF" }}>
+          <div className="eyebrow" style={{ color: "var(--coral)", marginBottom: "clamp(16px, 3vh, 32px)" }}>BSA Member Chat · by Woodhurst</div>
+          <h1 style={{ fontFamily: "var(--font-sans)", fontSize: "clamp(48px, min(8vw, 12vh), 112px)", lineHeight: 0.94, fontWeight: 800, letterSpacing: "-0.04em", margin: 0, color: "#FFFFFF" }}>
             Talk to<br />
             <span style={{ color: "var(--coral)" }}>your members.</span>
           </h1>
-          <p style={{ fontSize: 21, lineHeight: 1.45, color: "rgba(255,255,255,0.78)", maxWidth: 500, marginTop: 36, fontWeight: 400 }}>
+          <p style={{ fontSize: "clamp(17px, 1.7vw, 21px)", lineHeight: 1.45, color: "rgba(255,255,255,0.78)", maxWidth: 500, marginTop: "clamp(20px, 3.5vh, 36px)", fontWeight: 400 }}>
             A simulator for boards and executives. Hear what your members actually think - in their own voice, grounded in real reviews and public data.
           </p>
 
-          <div style={{ marginTop: 56, display: "flex", alignItems: "center", gap: 24 }}>
+          <div style={{ marginTop: "clamp(24px, 5vh, 56px)", display: "flex", alignItems: "center", gap: 24 }}>
             <div style={{ position: "relative" }}>
               <div
                 style={{

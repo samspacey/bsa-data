@@ -19,6 +19,11 @@ from src.api.services.pdf_report import (
     ReportScore,
     render_report_pdf,
 )
+from src.api.services.report_narrative import (
+    overall_sentiment_for_society,
+    pick_representative_quote,
+    recommendations_for,
+)
 from src.api.services.scores import (
     FACTOR_ASPECTS,
     ScoreRow,
@@ -36,27 +41,40 @@ def _safe_filename(society_name: str) -> str:
     return f"benchmark-{slug}-{date.today().isoformat()}.pdf"
 
 
-def _scores_for_pdf(society_id: str) -> Optional[list[ReportScore]]:
-    """Compute bespoke per-society scores and adapt to the PDF's ReportScore shape."""
+def _bespoke_narrative(
+    society_id: str,
+) -> tuple[Optional[list[ReportScore]], Optional[list[str]], Optional[str], Optional[str]]:
+    """Compute scores + recommendations + a representative quote in one DB session.
+
+    Returns ``(scores_for_pdf, recommendations, quote, quote_source)``. Any
+    field can be ``None`` if computation fails or the society has no
+    enrichment data; the caller falls back to the module-level defaults.
+    """
     try:
         engine = get_engine()
         with get_session(engine) as session:
-            rows = compute_society_scores(session, society_id)
-        if not rows:
-            return None
-        return [
-            ReportScore(
-                factor=r.factor,
-                score=r.score,
-                avg=r.avg,
-                rank=r.rank,
-                status=r.status,
-            )
-            for r in rows
-        ]
+            rows = compute_society_scores(session, society_id) or []
+            sentiment = overall_sentiment_for_society(session, society_id)
+            quote, quote_source = pick_representative_quote(session, society_id, sentiment)
     except Exception as e:  # noqa: BLE001
-        print(f"score computation failed for {society_id}: {e}")
-        return None
+        print(f"narrative computation failed for {society_id}: {e}")
+        return None, None, None, None
+
+    if not rows:
+        return None, None, quote, quote_source
+
+    scores_for_pdf = [
+        ReportScore(
+            factor=r.factor,
+            score=r.score,
+            avg=r.avg,
+            rank=r.rank,
+            status=r.status,
+        )
+        for r in rows
+    ]
+    recs = recommendations_for(rows)
+    return scores_for_pdf, recs, quote, quote_source
 
 
 def _pdf_for_society(society_id: str, region: Optional[str] = None) -> tuple[bytes, str, str]:
@@ -65,21 +83,25 @@ def _pdf_for_society(society_id: str, region: Optional[str] = None) -> tuple[byt
     ``region`` is passed from the frontend (where the Society type has it);
     the backend config doesn't store it so we accept it as an override.
 
-    Scores are computed live from sentiment_aspect data so each society's
-    PDF is bespoke. Falls back to the static demo scores only if computation
-    fails entirely (e.g. empty enrichment table on a fresh deploy).
+    Scores, recommendations and the pull-quote are all computed live from
+    the society's own review/sentiment data so each PDF is bespoke. Falls
+    back to the static demo content only if computation fails entirely
+    (e.g. empty enrichment table on a fresh deploy).
     """
     society = SOCIETY_BY_ID.get(society_id)
     if society is None:
         raise HTTPException(status_code=404, detail=f"Unknown society: {society_id}")
 
-    scores = _scores_for_pdf(society_id) or DEFAULT_SCORES
+    scores, recs, quote, quote_source = _bespoke_narrative(society_id)
 
     try:
         pdf_bytes = render_report_pdf(
             society_name=society.canonical_name,
             society_region=region or "",
-            scores=scores,
+            scores=scores or DEFAULT_SCORES,
+            recommendations=recs or DEFAULT_RECOMMENDATIONS,
+            quote=quote,
+            quote_source=quote_source,
         )
     except RuntimeError as e:
         # WeasyPrint missing in the environment.
