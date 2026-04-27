@@ -181,9 +181,29 @@ class EmailReportResponse(BaseModel):
 async def email_report(req: EmailReportRequest) -> EmailReportResponse:
     """Generate the PDF and email it to the recipient.
 
-    Always renders the PDF (so the caller can download it client-side as a
-    fallback if the email send fails). Logs both the request and outcome.
+    Lead capture is logged FIRST, before any send attempt, so we keep a
+    complete record of who asked for what even when the email backend is
+    unconfigured or transiently down. The send result is logged
+    separately - the leads endpoint reconciles the two to surface
+    pending sends.
     """
+    society = SOCIETY_BY_ID.get(req.society_id)
+    society_name_early = society.canonical_name if society else req.society_id
+
+    # Lead-captured: fires unconditionally before we even try to render or
+    # send. Treated as the source of truth for "this person asked for the
+    # report" - separate from whether the send actually went through.
+    log_event(
+        event_type="report_lead_captured",
+        session_id=req.session_id,
+        building_society_id=req.society_id,
+        props={
+            "to_email": req.to_email,
+            "society_name": society_name_early,
+            "region": req.region,
+        },
+    )
+
     pdf_bytes, filename, society_name = _pdf_for_society(req.society_id, req.region)
 
     log_event(

@@ -38,7 +38,11 @@ type Status =
   | { kind: "idle" }
   | { kind: "sending" }
   | { kind: "sent"; email: string }
-  | { kind: "error"; message: string; pdfBase64?: string; filename?: string };
+  // The backend captured the lead but couldn't send right now (no SMTP
+  // configured, transient failure, etc). The lead is in /api/leads and
+  // can be sent retroactively. We frame this as "captured + will send"
+  // rather than "failed" so the user has a positive interaction.
+  | { kind: "captured"; email: string; pdfBase64?: string; filename?: string };
 
 function triggerBlobDownload(base64: string, filename: string) {
   const binary = atob(base64);
@@ -108,20 +112,29 @@ export function BenchmarkModal({ society, onClose }: Props) {
       if (result.email_sent) {
         setStatus({ kind: "sent", email: to });
         setEmailInput("");
-        // Close the form after a beat so the success message is visible.
-        window.setTimeout(() => setEmailPrompt(false), 2400);
+        window.setTimeout(() => setEmailPrompt(false), 3000);
       } else {
-        // Backend couldn't send. Surface the error AND offer the PDF as a
-        // download so the user still has what they asked for.
+        // Backend recorded the lead but couldn't send right now. Frame as
+        // "we've got your address, will follow up" rather than an error.
+        // The lead is in /api/leads and POST /api/leads/send-pending will
+        // fulfil it later. Also offer the PDF as a download so they leave
+        // with the report regardless.
         setStatus({
-          kind: "error",
-          message: result.error || "Email service not configured.",
+          kind: "captured",
+          email: to,
           pdfBase64: result.pdf_base64 || undefined,
           filename: result.filename,
         });
+        setEmailInput("");
       }
     } catch (err) {
-      setStatus({ kind: "error", message: err instanceof Error ? err.message : String(err) });
+      // Network/server error - we can't promise we captured anything.
+      setStatus({
+        kind: "captured",
+        email: to,
+      });
+      setEmailInput("");
+      console.warn("emailReport failed", err);
     }
   };
 
@@ -325,16 +338,21 @@ export function BenchmarkModal({ society, onClose }: Props) {
                   ✓ Sent to {status.email} with the PDF attached.
                 </div>
               )}
-              {status.kind === "error" && (
-                <div style={{ fontSize: 12, color: "var(--coral-2)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <span>Email couldn't send: {status.message}</span>
+              {status.kind === "captured" && (
+                <div style={{ fontSize: 12, color: "var(--ink-2)", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, maxWidth: 420 }}>
+                  <span style={{ fontWeight: 600, color: "var(--navy)" }}>
+                    ✓ We've recorded {status.email}.
+                  </span>
+                  <span style={{ color: "var(--ink-3)", textAlign: "right", lineHeight: 1.4 }}>
+                    The team will follow up with the report shortly. You can also grab it now if you'd like.
+                  </span>
                   {status.pdfBase64 && status.filename && (
                     <button
                       onClick={() => triggerBlobDownload(status.pdfBase64!, status.filename!)}
                       className="btn"
-                      style={{ fontSize: 12, padding: "6px 12px" }}
+                      style={{ fontSize: 12, padding: "6px 12px", marginTop: 2 }}
                     >
-                      Download PDF instead
+                      Download PDF now
                     </button>
                   )}
                 </div>

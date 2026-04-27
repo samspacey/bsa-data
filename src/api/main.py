@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routes import chat, events, health, report, reviews
+from src.api.routes import chat, events, health, leads, report, reviews
 from src.data.database import get_engine, init_database
 
 
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(reviews.router)
     app.include_router(events.router)
     app.include_router(report.router)
+    app.include_router(leads.router)
 
     @app.on_event("startup")
     async def _create_tables_if_missing() -> None:
