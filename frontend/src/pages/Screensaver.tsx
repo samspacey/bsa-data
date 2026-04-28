@@ -346,16 +346,19 @@ export function Screensaver({ onEnter }: Props) {
             <Icon.Quote style={{ color: "var(--coral)", marginBottom: 14 }} width="30" height="30" />
             <p
               style={{
-                fontSize: 26,
-                lineHeight: 1.3,
+                // Was a hard 26px which truncated longer reviews mid-sentence
+                // inside the 5-line clamp. A clamp + larger line clamp lets more
+                // of the actual review surface comfortably without bursting the card.
+                fontSize: "clamp(16px, 1.4vw, 19px)",
+                lineHeight: 1.45,
                 color: "#FFFFFF",
                 margin: 0,
-                letterSpacing: "-0.015em",
+                letterSpacing: "-0.01em",
                 fontWeight: 500,
                 textWrap: "pretty",
                 flex: 1,
                 display: "-webkit-box",
-                WebkitLineClamp: 5,
+                WebkitLineClamp: 7,
                 WebkitBoxOrient: "vertical",
                 overflow: "hidden",
               }}
