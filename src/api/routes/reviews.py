@@ -16,6 +16,17 @@ from src.data.models import PublicReview, SentimentAspect
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 
+# Length window for reviews displayed on the screensaver "what members are
+# saying" card. The card has a 320px height, ~17px body font and a 7-line clamp,
+# so empirically anything beyond ~180 chars risks getting truncated mid-sentence
+# on smaller kiosks. The 60-char floor filters out one-liners that look weak
+# next to the giant attribution. Distribution at the time of writing: ~4k
+# reviews in 60-140 + ~1.3k in 140-180, so the rotation has more than enough
+# variety even with this tighter cap.
+SCREENSAVER_MIN_CHARS = 60
+SCREENSAVER_MAX_CHARS = 180
+
+
 class FeaturedReview(BaseModel):
     """Minimal review payload for the screensaver's 'what members are saying' panel."""
 
@@ -91,7 +102,8 @@ async def featured_reviews(limit: int = 10) -> list[FeaturedReview]:
     """Return a variety of real review quotes across different societies.
 
     Criteria for selection:
-    - Body length between 60 and 260 characters (fits the screensaver card)
+    - Body length between SCREENSAVER_MIN_CHARS and SCREENSAVER_MAX_CHARS so
+      the quote fits the card without the 7-line clamp truncating the end
     - Rating is extreme (1-2 or 4-5) - more quotable than 3-star 'meh'
     - Spread across multiple societies
     - Reasonably recent (last 2 years)
@@ -101,22 +113,15 @@ async def featured_reviews(limit: int = 10) -> list[FeaturedReview]:
         with get_session(engine) as session:
             # Pull a larger candidate set, then dedupe per society in Python for variety.
             cutoff = date(date.today().year - 2, 1, 1)
+            body_len = func.length(
+                func.coalesce(PublicReview.body_text_clean, PublicReview.body_text_raw)
+            )
             q = (
                 session.query(PublicReview)
                 .filter(PublicReview.is_flagged_for_exclusion == False)  # noqa: E712
                 .filter(PublicReview.review_date >= cutoff)
-                .filter(
-                    func.length(
-                        func.coalesce(PublicReview.body_text_clean, PublicReview.body_text_raw)
-                    )
-                    >= 60
-                )
-                .filter(
-                    func.length(
-                        func.coalesce(PublicReview.body_text_clean, PublicReview.body_text_raw)
-                    )
-                    <= 260
-                )
+                .filter(body_len >= SCREENSAVER_MIN_CHARS)
+                .filter(body_len <= SCREENSAVER_MAX_CHARS)
                 .filter(PublicReview.rating_raw.in_([1, 2, 4, 5]))
             )
             candidates = q.order_by(func.random()).limit(limit * 10).all()
