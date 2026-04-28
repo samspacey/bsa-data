@@ -647,26 +647,34 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
             const short = shortSourceName(snippet.source);
             const reviewId = reviewIdFor(p.index);
             const displayNum = displayNumberByIndex.get(p.index) ?? (p.index + 1);
+            // Render the citation as an inline pill in the body text rather than
+            // a 10px superscript - users (and partners on the kiosk) reported
+            // missing the references entirely because the marker was visually
+            // buried. A small, readable bracket pill makes it obvious the
+            // sentence is grounded in a real review without disrupting flow.
             return (
-              <sup key={i} style={{ marginLeft: 2 }}>
-                <button
-                  onClick={() => { if (reviewId !== null) onCiteClick(reviewId); }}
-                  title={`${short} · ${formatReviewDate(snippet.review_date)}`}
-                  style={{
-                    padding: "1px 6px",
-                    borderRadius: 6,
-                    background: "var(--coral-soft)",
-                    color: "var(--coral-2)",
-                    border: "1px solid rgba(255,87,115,0.25)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    fontFamily: "var(--font-mono)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {displayNum}
-                </button>
-              </sup>
+              <button
+                key={i}
+                onClick={() => { if (reviewId !== null) onCiteClick(reviewId); }}
+                title={`${short} · ${formatReviewDate(snippet.review_date)}`}
+                style={{
+                  display: "inline-block",
+                  padding: "1px 7px",
+                  margin: "0 1px 0 3px",
+                  borderRadius: 5,
+                  background: "var(--coral-soft)",
+                  color: "var(--coral-2)",
+                  border: "1px solid rgba(255,87,115,0.35)",
+                  fontSize: 12,
+                  lineHeight: 1.2,
+                  fontWeight: 700,
+                  fontFamily: "var(--font-mono)",
+                  cursor: "pointer",
+                  verticalAlign: "baseline",
+                }}
+              >
+                [{displayNum}]
+              </button>
             );
           })}
           {message.streaming && !message.text && (
@@ -675,8 +683,8 @@ function MessageBlock({ message, persona, onCiteClick }: MessageBlockProps) {
           {message.streaming && message.text && <span style={{ opacity: 0.5 }}>▌</span>}
         </div>
         {!isUser && citedIndices.length > 0 && (
-          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-            <span className="mono" style={{ color: "var(--ink-3)", fontSize: 9.5 }}>INFORMED BY</span>
+          <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+            <span className="mono" style={{ color: "var(--ink-3)", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em" }}>SOURCES</span>
             {citedIndices.map(idx => {
               const s = snippets[idx];
               if (!s) return null;
